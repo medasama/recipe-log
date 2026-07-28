@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>料理記録</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap');
+
+  :root {
+    --paper: #eae6da;
+    --paper-card: #f4f1e8;
+    --ink: #2b3a42;
+    --ink-light: #6b7880;
+    --line: #c7bfa9;
+    --stamp: #a5432f;
+    --tape: #ddd2b3;
+    --sage: #6b7a5e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+  }
+  .serif { font-family: 'Shippori Mincho', serif; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  header { padding: 40px 24px 20px; }
+  @media (min-width: 768px) { header { padding: 40px 48px 20px; } }
+  .eyebrow { font-size: 12px; letter-spacing: 0.12em; color: var(--ink-light); margin: 0; }
+  h1 { font-size: 32px; margin: 4px 0 8px; }
+  .sub { font-size: 14px; color: var(--ink-light); margin: 0; }
+
+  .add-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--ink); color: var(--paper-card);
+    border: none; padding: 10px 16px; border-radius: 3px;
+    font-family: inherit; font-size: 14px; cursor: pointer;
+  }
+
+  .card {
+    background: var(--paper-card); border: 1px solid var(--line);
+    box-shadow: 2px 3px 0 rgba(43,58,66,0.06);
+    border-radius: 3px;
+  }
+
+  #form-panel { max-width: 480px; padding: 20px 24px; display: none; margin-top: 4px; }
+  .form-row { margin-bottom: 16px; }
+  .form-row label { display: block; font-size: 12px; color: var(--ink-light); margin-bottom: 4px; }
+  .form-row input[type="text"],
+  .form-row input[type="datetime-local"],
+  .form-row textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 3px; background: transparent; font-family: inherit; font-size: 14px; color: var(--ink);
+  }
+  .form-row textarea { resize: none; }
+  .btn-outline {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: transparent; color: var(--ink);
+    padding: 8px 12px; border-radius: 3px; font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+  .btn-sage { border-color: var(--sage); color: var(--sage); }
+  .btn-save {
+    width: 100%; background: var(--ink); color: var(--paper-card);
+    border: none; padding: 10px; border-radius: 3px; font-family: inherit; font-size: 14px; cursor: pointer;
+  }
+  .btn-save:disabled, .btn-outline:disabled { opacity: 0.6; cursor: default; }
+  .title-row { display: flex; gap: 8px; }
+  .title-row input { flex: 1; }
+  .hint { font-size: 12px; color: var(--ink-light); margin: 4px 0 0; }
+  .error-text { font-size: 12px; color: var(--stamp); margin: 0 0 12px; }
+  .close-btn { background: none; border: none; color: var(--ink-light); cursor: pointer; font-size: 16px; }
+  .form-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+
+  .photo-preview-wrap { display: inline-block; padding: 4px; background: var(--tape); transform: rotate(-1.5deg); margin: 8px 0 16px; }
+  .photo-preview-wrap img { display: block; max-height: 160px; border-radius: 2px; }
+
+  main { padding: 16px 8px 60px; }
+  @media (min-width: 768px) { main { padding: 16px 48px 60px; } }
+  #empty-msg, #loading-msg { font-size: 14px; color: var(--ink-light); padding: 0 16px; }
+
+  .holes {
+    background-image: radial-gradient(circle, var(--line) 3px, transparent 3px);
+    background-size: 100% 34px; background-position: 8px 10px;
+    padding-left: 28px;
+  }
+  @media (min-width: 768px) { .holes { padding-left: 40px; } }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 16px; padding-top: 8px; }
+  @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+  .entry { padding: 16px; padding-top: 26px; position: relative; overflow: hidden; }
+  .stamp {
+    position: absolute; top: -8px; right: 8px; transform: rotate(-4deg);
+    border: 2px solid var(--stamp); color: var(--stamp); background: var(--paper-card);
+    font-size: 10px; padding: 3px 7px; border-radius: 3px; white-space: nowrap;
+  }
+  .entry-body { display: flex; gap: 12px; }
+  .thumb-wrap { flex-shrink: 0; padding: 3px; background: var(--tape); transform: rotate(-2deg); }
+  .thumb-wrap img { width: 76px; height: 76px; object-fit: cover; border-radius: 2px; display: block; }
+  .thumb-placeholder {
+    width: 76px; height: 76px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    border: 1px dashed var(--line); color: var(--ink-light); border-radius: 2px; font-size: 22px;
+  }
+  .entry-title { font-size: 16px; margin: 0 0 4px; }
+  .entry-comment { font-size: 13px; color: var(--ink-light); margin: 0; line-height: 1.4; }
+  .del-btn { position: absolute; bottom: 8px; right: 8px; background: none; border: none; color: var(--ink-light); opacity: 0.6; cursor: pointer; font-size: 13px; }
+  .del-btn:hover { opacity: 1; }
+  .spin { display: inline-block; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow mono">KITCHEN LOG / ネタ帳</p>
+  <h1 class="serif">料理記録</h1>
+  <p class="sub">献立とレシピの記録。写真・一言コメント・日付を残しておくノート。（完全オフライン・外部送信なし）</p>
+</header>
+
+<div style="padding: 0 24px 4px;">
+  <button class="add-btn" id="open-form-btn">＋ 記録を追加</button>
+
+  <div class="card" id="form-panel">
+    <div class="form-head">
+      <h2 class="serif" style="margin:0; font-size:18px;">新しい記録</h2>
+      <button class="close-btn" id="close-form-btn">✕</button>
+    </div>
+
+    <div class="form-row">
+      <label>日付・時間</label>
+      <input type="datetime-local" id="input-datetime" class="mono">
+    </div>
+
+    <div class="form-row">
+      <label>写真</label>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="btn-outline" id="pick-photo-btn">📷 写真を選ぶ</button>
+        <input type="file" id="file-input" accept="image/*,.heic,.heif" style="display:none;">
+      </div>
+      <div id="photo-preview-wrap" class="photo-preview-wrap" style="display:none;">
+        <img id="photo-preview" src="" alt="添付写真">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>一言コメント</label>
+      <textarea id="input-comment" rows="2" placeholder="例：出汁が良く効いた。次回は少し塩控えめで。"></textarea>
+    </div>
+
+    <div class="form-row">
+      <label>タイトル</label>
+      <div class="title-row">
+        <input type="text" id="input-title" placeholder="例：無水きのこの炊き込みご飯">
+      </div>
+      <p class="hint">空欄のまま保存すると、コメントの文章がそのままタイトルになります。</p>
+    </div>
+
+    <p class="error-text" id="form-error" style="display:none;"></p>
+
+    <button class="btn-save" id="save-btn">記録を保存</button>
+  </div>
+  <p class="error-text" id="outer-error" style="display:none; margin-top:8px;"></p>
+</div>
+
+<main>
+  <p id="loading-msg">読み込み中...</p>
+  <p id="empty-msg" style="display:none;">まだ記録がありません。最初の一皿を記録してみましょう。</p>
+  <div class="holes" id="list-wrap" style="display:none;">
+    <div class="grid" id="list"></div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.1/index.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+<script>
+const WEEKDAYS = ["日","月","火","水","木","金","土"];
+let entries = [];
+let currentPhotoDataUrl = null;
+let heicLoadPromise = null;
+let editingId = null;
+
+function isoToInput(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return nowForInput();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0,16);
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? "" : s;
+  return d.innerHTML;
+}
+
+function formatDateTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const hh = String(d.getHours()).padStart(2,"0");
+  const mm = String(d.getMinutes()).padStart(2,"0");
+  return `${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]}) ${hh}:${mm}`;
+}
+
+function nowForInput() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0,16);
+}
+
+function setFormError(msg) {
+  const el = document.getElementById('form-error');
+  if (msg) { el.textContent = msg; el.style.display = 'block'; }
+  else { el.style.display = 'none'; }
+}
+function setOuterError(msg) {
+  const el = document.getElementById('outer-error');
+  if (msg) { el.textContent = msg; el.style.display = 'block'; }
+  else { el.style.display = 'none'; }
+}
+
+// ---- HEIC handling ----
+function ensureHeic2any() {
+  if (window.heic2any) return Promise.resolve(window.heic2any);
+  if (heicLoadPromise) return heicLoadPromise;
+  heicLoadPromise = new Promise((resolve, reject) => {
+    const check = () => {
+      if (window.heic2any) resolve(window.heic2any);
+      else setTimeout(check, 100);
+    };
+    check();
+    setTimeout(() => { if (!window.heic2any) reject(new Error("heic2any load timeout")); }, 8000);
+  });
+  return heicLoadPromise;
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+function resizeDataUrl(dataUrl, maxWidth = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+function exifDateToIso(dt) {
+  const m = String(dt).match(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+function getPhotoDate(file) {
+  return new Promise((resolve) => {
+    const fallback = () => resolve(file.lastModified ? new Date(file.lastModified).toISOString() : new Date().toISOString());
+    const isHeic = /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name || "");
+    if (typeof EXIF === 'undefined' || isHeic) { fallback(); return; }
+    try {
+      EXIF.getData(file, function () {
+        const dt = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
+        const iso = dt ? exifDateToIso(dt) : null;
+        if (iso) resolve(iso); else fallback();
+      });
+    } catch (e) { fallback(); }
+  });
+}
+
+async function handleFileSelected(file) {
+  setFormError("");
+  const isHeic = /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name || "");
+  try {
+    let dataUrl;
+
+    // 写真の日付を推定して日付欄に反映(撮影日時のEXIFがなければファイルの更新日時)
+    getPhotoDate(file).then(iso => {
+      document.getElementById('input-datetime').value = isoToInput(iso);
+    });
+
+    if (isHeic) {
+      setFormError("HEIC画像を変換しています...");
+      const heic2any = await ensureHeic2any();
+      const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.8 });
+      const blob = Array.isArray(result) ? result[0] : result;
+      dataUrl = await fileToDataUrl(blob);
+      setFormError("");
+    } else {
+      dataUrl = await fileToDataUrl(file);
+    }
+    const resized = await resizeDataUrl(dataUrl);
+    currentPhotoDataUrl = resized;
+    document.getElementById('photo-preview').src = resized;
+    document.getElementById('photo-preview-wrap').style.display = 'inline-block';
+  } catch (err) {
+    currentPhotoDataUrl = null;
+    document.getElementById('photo-preview-wrap').style.display = 'none';
+    if (isHeic) {
+      setFormError("HEIC画像の変換に失敗しました。iPhoneの「設定 > カメラ > フォーマット」を「互換性優先」にするか、JPEG/PNGとして書き出してから選び直してください。");
+    } else {
+      setFormError(`画像の読み込みに失敗しました（${file.type || "unknown"} / ${(file.size/1024).toFixed(0)}KB）。別の写真でお試しください。`);
+    }
+  }
+}
+
+// ---- storage (IndexedDB: ブラウザ標準機能。Claude外にホストしても動く) ----
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('recipeLogDB', 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('recipes')) {
+        db.createObjectStore('recipes', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbGetAll() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('recipes', 'readonly');
+    const req = tx.objectStore('recipes').getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbPut(entry) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('recipes', 'readwrite');
+    tx.objectStore('recipes').put(entry);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbDelete(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('recipes', 'readwrite');
+    tx.objectStore('recipes').delete(id);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function loadEntries() {
+  try {
+    const items = await dbGetAll();
+    items.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+    entries = items;
+  } catch (e) {
+    setOuterError("記録の読み込みに失敗しました。");
+  } finally {
+    document.getElementById('loading-msg').style.display = 'none';
+    renderList();
+  }
+}
+
+function renderList() {
+  const listWrap = document.getElementById('list-wrap');
+  const emptyMsg = document.getElementById('empty-msg');
+  const list = document.getElementById('list');
+  if (entries.length === 0) {
+    listWrap.style.display = 'none';
+    emptyMsg.style.display = 'block';
+    return;
+  }
+  emptyMsg.style.display = 'none';
+  listWrap.style.display = 'block';
+  list.innerHTML = entries.map(e => `
+    <article class="card entry">
+      <div class="stamp mono">${esc(formatDateTime(e.datetime))}</div>
+      <div class="entry-body">
+        ${e.photo
+          ? `<div class="thumb-wrap"><img src="${e.photo}" alt="${esc(e.title)}"></div>`
+          : `<div class="thumb-placeholder">🍚</div>`}
+        <div style="min-width:0; flex:1;">
+          <h3 class="serif entry-title">${esc(e.title)}</h3>
+          ${e.comment ? `<p class="entry-comment">${esc(e.comment)}</p>` : ``}
+        </div>
+      </div>
+      <div style="position:absolute; bottom:8px; right:8px; display:flex; gap:10px;">
+        <button class="del-btn edit-btn" data-id="${esc(e.id)}" style="position:static;">✏️ 編集</button>
+        <button class="del-btn" data-id="${esc(e.id)}" style="position:static;">🗑 削除</button>
+      </div>
+    </article>
+  `).join("");
+  list.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleEdit(btn.getAttribute('data-id')));
+  });
+  list.querySelectorAll('.del-btn:not(.edit-btn)').forEach(btn => {
+    btn.addEventListener('click', () => handleDelete(btn.getAttribute('data-id')));
+  });
+}
+
+async function handleDelete(id) {
+  try {
+    await dbDelete(id);
+    entries = entries.filter(e => e.id !== id);
+    renderList();
+  } catch (e) {
+    setOuterError("削除に失敗しました。");
+  }
+}
+
+function handleEdit(id) {
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  editingId = id;
+  document.getElementById('input-datetime').value = isoToInput(entry.datetime);
+  document.getElementById('input-comment').value = entry.comment || "";
+  document.getElementById('input-title').value = entry.title || "";
+  currentPhotoDataUrl = entry.photo || null;
+  if (entry.photo) {
+    document.getElementById('photo-preview').src = entry.photo;
+    document.getElementById('photo-preview-wrap').style.display = 'inline-block';
+  } else {
+    document.getElementById('photo-preview-wrap').style.display = 'none';
+  }
+  document.querySelector('#form-panel .form-head h2').textContent = '記録を編集';
+  document.getElementById('save-btn').textContent = '更新する';
+  document.getElementById('form-panel').style.display = 'block';
+  document.getElementById('open-form-btn').style.display = 'none';
+  setFormError("");
+  document.getElementById('form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function handleSave() {
+  const title = document.getElementById('input-title').value.trim();
+  const comment = document.getElementById('input-comment').value.trim();
+  const datetime = document.getElementById('input-datetime').value;
+  if (!title && !comment && !currentPhotoDataUrl) {
+    setFormError("タイトル・コメント・写真のいずれかを入力してください。");
+    return;
+  }
+  const saveBtn = document.getElementById('save-btn');
+  saveBtn.disabled = true; const origText = saveBtn.textContent; saveBtn.textContent = editingId ? '更新中...' : '保存中...';
+  setFormError("");
+  const id = editingId || `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  const entry = {
+    id,
+    datetime: new Date(datetime).toISOString(),
+    title: title || comment || "無題の記録",
+    comment,
+    photo: currentPhotoDataUrl
+  };
+  try {
+    const result = await dbPut(entry);
+    if (!result) throw new Error("save failed");
+    if (editingId) {
+      entries = entries.map(e => e.id === id ? entry : e);
+    } else {
+      entries.unshift(entry);
+    }
+    entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+    renderList();
+    resetForm();
+  } catch (e) {
+    setFormError(editingId ? "更新に失敗しました。もう一度お試しください。" : "保存に失敗しました。もう一度お試しください。");
+  } finally {
+    saveBtn.disabled = false; saveBtn.textContent = origText;
+  }
+}
+
+function resetForm() {
+  editingId = null;
+  document.getElementById('input-datetime').value = nowForInput();
+  document.getElementById('input-comment').value = "";
+  document.getElementById('input-title').value = "";
+  currentPhotoDataUrl = null;
+  document.getElementById('photo-preview-wrap').style.display = 'none';
+  document.getElementById('file-input').value = "";
+  document.getElementById('form-panel').style.display = 'none';
+  document.getElementById('open-form-btn').style.display = 'inline-flex';
+  document.querySelector('#form-panel .form-head h2').textContent = '新しい記録';
+  document.getElementById('save-btn').textContent = '記録を保存';
+  setFormError("");
+}
+
+// ---- wire up ----
+document.getElementById('input-datetime').value = nowForInput();
+document.getElementById('open-form-btn').addEventListener('click', () => {
+  document.getElementById('form-panel').style.display = 'block';
+  document.getElementById('open-form-btn').style.display = 'none';
+});
+document.getElementById('close-form-btn').addEventListener('click', resetForm);
+document.getElementById('pick-photo-btn').addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (file) handleFileSelected(file);
+});
+document.getElementById('save-btn').addEventListener('click', handleSave);
+
+loadEntries();
+</script>
+</body>
+</html>
