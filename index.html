@@ -118,8 +118,10 @@
   <p class="sub">献立とレシピの記録。写真・一言コメント・日付を残しておくノート。（完全オフライン・外部送信なし）</p>
 </header>
 
-<div style="padding: 0 24px 4px;">
+<div style="padding: 0 24px 4px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
   <button class="add-btn" id="open-form-btn">＋ 記録を追加</button>
+  <button class="btn-outline" id="quick-photo-btn">📷 写真だけ追加</button>
+  <input type="file" id="quick-photo-input" accept="image/*,.heic,.heif" multiple style="display:none;">
 
   <div class="card" id="form-panel">
     <div class="form-head">
@@ -161,6 +163,7 @@
     <button class="btn-save" id="save-btn">記録を保存</button>
   </div>
   <p class="error-text" id="outer-error" style="display:none; margin-top:8px;"></p>
+  <p class="hint" id="quick-add-status" style="display:none; margin-top:8px;"></p>
 </div>
 
 <main>
@@ -282,6 +285,51 @@ function getPhotoDate(file) {
   });
 }
 
+async function processOnePhotoFile(file) {
+  const isHeic = /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name || "");
+  const dateIso = await getPhotoDate(file);
+  let dataUrl;
+  if (isHeic) {
+    const heic2any = await ensureHeic2any();
+    const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.8 });
+    const blob = Array.isArray(result) ? result[0] : result;
+    dataUrl = await fileToDataUrl(blob);
+  } else {
+    dataUrl = await fileToDataUrl(file);
+  }
+  const resized = await resizeDataUrl(dataUrl);
+  return { datetime: dateIso, photo: resized };
+}
+
+async function handleQuickAddPhotos(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  setOuterError("");
+  const statusEl = document.getElementById('quick-add-status');
+  statusEl.style.display = 'block';
+  let done = 0, failed = 0;
+  for (const file of files) {
+    statusEl.textContent = `写真を取り込み中 (${done + 1}/${files.length})...`;
+    try {
+      const { datetime, photo } = await processOnePhotoFile(file);
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+      const entry = { id, datetime, title: "", comment: "", photo };
+      await dbPut(entry);
+      entries.push(entry);
+    } catch (e) {
+      failed++;
+    }
+    done++;
+  }
+  entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+  renderList();
+  statusEl.style.display = 'none';
+  statusEl.textContent = '';
+  if (failed > 0) {
+    setOuterError(`${failed}件の写真は取り込めませんでした（HEIC変換の失敗など）。`);
+  }
+}
+
 async function handleFileSelected(file) {
   setFormError("");
   const isHeic = /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name || "");
@@ -395,7 +443,7 @@ function renderList() {
           ? `<div class="thumb-wrap"><img src="${e.photo}" alt="${esc(e.title)}"></div>`
           : `<div class="thumb-placeholder">🍚</div>`}
         <div style="min-width:0; flex:1;">
-          <h3 class="serif entry-title">${esc(e.title)}</h3>
+          <h3 class="serif entry-title"${e.title ? '' : ' style="color:var(--ink-light); font-style:italic;"'}>${e.title ? esc(e.title) : "(タイトル未入力・タップして編集)"}</h3>
           ${e.comment ? `<p class="entry-comment">${esc(e.comment)}</p>` : ``}
         </div>
       </div>
@@ -504,6 +552,12 @@ document.getElementById('open-form-btn').addEventListener('click', () => {
   document.getElementById('open-form-btn').style.display = 'none';
 });
 document.getElementById('close-form-btn').addEventListener('click', resetForm);
+document.getElementById('quick-photo-btn').addEventListener('click', () => document.getElementById('quick-photo-input').click());
+document.getElementById('quick-photo-input').addEventListener('change', (e) => {
+  const files = e.target.files;
+  if (files && files.length) handleQuickAddPhotos(files);
+  e.target.value = "";
+});
 document.getElementById('pick-photo-btn').addEventListener('click', () => document.getElementById('file-input').click());
 document.getElementById('file-input').addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
