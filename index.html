@@ -18,19 +18,28 @@
     --sage: #6b7a5e;
   }
   * { box-sizing: border-box; }
-  body {
+  html, body {
     margin: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  body {
     background: var(--paper);
     color: var(--ink);
     font-family: 'Zen Kaku Gothic New', sans-serif;
   }
+  img { max-width: 100%; height: auto; }
   .serif { font-family: 'Shippori Mincho', serif; }
   .mono { font-family: 'JetBrains Mono', monospace; }
-  header { padding: 40px 24px 20px; }
+  header { padding: 28px 16px 16px; }
+  @media (min-width: 480px) { header { padding: 40px 24px 20px; } }
   @media (min-width: 768px) { header { padding: 40px 48px 20px; } }
-  .eyebrow { font-size: 12px; letter-spacing: 0.12em; color: var(--ink-light); margin: 0; }
-  h1 { font-size: 32px; margin: 4px 0 8px; }
-  .sub { font-size: 14px; color: var(--ink-light); margin: 0; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.1em; color: var(--ink-light); margin: 0; }
+  h1 { font-size: 26px; margin: 4px 0 8px; }
+  @media (min-width: 480px) { h1 { font-size: 32px; } }
+  .sub { font-size: 13px; color: var(--ink-light); margin: 0; line-height: 1.5; }
+  @media (min-width: 480px) { .sub { font-size: 14px; } }
 
   .add-btn {
     display: inline-flex; align-items: center; gap: 8px;
@@ -45,7 +54,8 @@
     border-radius: 3px;
   }
 
-  #form-panel { max-width: 480px; padding: 20px 24px; display: none; margin-top: 4px; }
+  #form-panel { max-width: 480px; padding: 16px; display: none; margin-top: 4px; }
+  @media (min-width: 480px) { #form-panel { padding: 20px 24px; } }
   .form-row { margin-bottom: 16px; }
   .form-row label { display: block; font-size: 12px; color: var(--ink-light); margin-bottom: 4px; }
   .form-row input[type="text"],
@@ -59,6 +69,7 @@
     display: inline-flex; align-items: center; gap: 6px;
     border: 1px solid var(--line); background: transparent; color: var(--ink);
     padding: 8px 12px; border-radius: 3px; font-family: inherit; font-size: 13px; cursor: pointer;
+    white-space: nowrap;
   }
   .btn-sage { border-color: var(--sage); color: var(--sage); }
   .btn-save {
@@ -67,47 +78,68 @@
   }
   .btn-save:disabled, .btn-outline:disabled { opacity: 0.6; cursor: default; }
   .title-row { display: flex; gap: 8px; }
-  .title-row input { flex: 1; }
+  .title-row input { flex: 1; min-width: 0; }
   .hint { font-size: 12px; color: var(--ink-light); margin: 4px 0 0; }
   .error-text { font-size: 12px; color: var(--stamp); margin: 0 0 12px; }
   .close-btn { background: none; border: none; color: var(--ink-light); cursor: pointer; font-size: 16px; }
   .form-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 
-  .photo-preview-wrap { display: inline-block; padding: 4px; background: var(--tape); transform: rotate(-1.5deg); margin: 8px 0 16px; }
-  .photo-preview-wrap img { display: block; max-height: 160px; border-radius: 2px; }
+  .photo-preview-wrap { display: inline-block; max-width: 100%; padding: 4px; background: var(--tape); transform: rotate(-1.5deg); margin: 8px 0 16px; }
+  .photo-preview-wrap img { display: block; width: auto; max-width: 100%; max-height: 160px; border-radius: 2px; }
 
-  main { padding: 16px 8px 60px; }
+  main { padding: 16px 4px 60px; }
+  @media (min-width: 480px) { main { padding: 16px 8px 60px; } }
   @media (min-width: 768px) { main { padding: 16px 48px 60px; } }
   #empty-msg, #loading-msg { font-size: 14px; color: var(--ink-light); padding: 0 16px; }
 
   .holes {
     background-image: radial-gradient(circle, var(--line) 3px, transparent 3px);
-    background-size: 100% 34px; background-position: 8px 10px;
-    padding-left: 28px;
+    background-size: 100% 34px; background-position: 4px 10px;
+    padding-left: 12px;
   }
+  @media (min-width: 480px) { .holes { padding-left: 22px; background-position: 8px 10px; } }
   @media (min-width: 768px) { .holes { padding-left: 40px; } }
-  .grid { display: grid; grid-template-columns: 1fr; gap: 16px; padding-top: 8px; }
-  @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; } }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 12px; padding-top: 8px; }
+  @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; gap: 16px; } }
 
-  .entry { padding: 16px; padding-top: 26px; position: relative; overflow: hidden; }
+  .top-actions { padding: 0 16px 4px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  @media (min-width: 480px) { .top-actions { padding: 0 24px 4px; } }
+
+  .entry { padding: 12px; position: relative; cursor: pointer; }
+  @media (min-width: 480px) { .entry { padding: 16px; } }
+  .entry:active { background: #ece7d8; }
+  .stamp-row { display: flex; justify-content: flex-end; margin-bottom: 8px; }
   .stamp {
-    position: absolute; top: -8px; right: 8px; transform: rotate(-4deg);
+    transform: rotate(-2deg);
     border: 2px solid var(--stamp); color: var(--stamp); background: var(--paper-card);
-    font-size: 10px; padding: 3px 7px; border-radius: 3px; white-space: nowrap;
+    font-size: 11px; padding: 3px 7px; border-radius: 3px; white-space: nowrap; line-height: 1.3;
   }
-  .entry-body { display: flex; gap: 12px; }
+  .entry-body { display: flex; gap: 10px; }
+  @media (min-width: 480px) { .entry-body { gap: 12px; } }
   .thumb-wrap { flex-shrink: 0; padding: 3px; background: var(--tape); transform: rotate(-2deg); }
-  .thumb-wrap img { width: 76px; height: 76px; object-fit: cover; border-radius: 2px; display: block; }
+  .thumb-wrap img { width: 64px; height: 64px; object-fit: cover; border-radius: 2px; display: block; cursor: zoom-in; }
+  @media (min-width: 480px) { .thumb-wrap img { width: 76px; height: 76px; } }
   .thumb-placeholder {
-    width: 76px; height: 76px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-    border: 1px dashed var(--line); color: var(--ink-light); border-radius: 2px; font-size: 22px;
+    width: 64px; height: 64px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    border: 1px dashed var(--line); color: var(--ink-light); border-radius: 2px; font-size: 20px;
   }
-  .entry-title { font-size: 16px; margin: 0 0 4px; }
-  .entry-comment { font-size: 13px; color: var(--ink-light); margin: 0; line-height: 1.4; }
-  .del-btn { position: absolute; bottom: 8px; right: 8px; background: none; border: none; color: var(--ink-light); opacity: 0.6; cursor: pointer; font-size: 13px; }
+  @media (min-width: 480px) { .thumb-placeholder { width: 76px; height: 76px; font-size: 22px; } }
+  .entry-title { font-size: 15px; margin: 0 0 4px; word-break: break-word; }
+  @media (min-width: 480px) { .entry-title { font-size: 16px; } }
+  .entry-comment { font-size: 12px; color: var(--ink-light); margin: 0; line-height: 1.4; word-break: break-word; }
+  @media (min-width: 480px) { .entry-comment { font-size: 13px; } }
+  .entry-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .del-btn { position: static; background: none; border: none; color: var(--ink-light); opacity: 0.75; cursor: pointer; font-size: 12px; padding: 4px 0; }
   .del-btn:hover { opacity: 1; }
   .spin { display: inline-block; animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  #lightbox {
+    display: none; position: fixed; inset: 0; background: rgba(20,22,20,0.88);
+    z-index: 1000; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out;
+  }
+  #lightbox img { max-width: 100%; max-height: 100%; border-radius: 4px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+  #lightbox-close { position: fixed; top: 16px; right: 20px; color: #fff; font-size: 26px; background: none; border: none; cursor: pointer; z-index: 1001; }
 </style>
 </head>
 <body>
@@ -115,10 +147,10 @@
 <header>
   <p class="eyebrow mono">KITCHEN LOG / ネタ帳</p>
   <h1 class="serif">料理記録</h1>
-  <p class="sub">献立とレシピの記録。写真・一言コメント・日付を残しておくノート。（完全オフライン・外部送信なし）</p>
+  <p class="sub">献立とレシピの記録。写真・メニュー・日付を残しておくノート。（完全オフライン・外部送信なし）</p>
 </header>
 
-<div style="padding: 0 24px 4px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+<div class="top-actions">
   <button class="add-btn" id="open-form-btn">＋ 記録を追加</button>
   <button class="btn-outline" id="quick-photo-btn">📷 写真だけ追加</button>
   <input type="file" id="quick-photo-input" accept="image/*,.heic,.heif" multiple style="display:none;">
@@ -135,6 +167,14 @@
     </div>
 
     <div class="form-row">
+      <label>タイトル</label>
+      <div class="title-row">
+        <input type="text" id="input-title" placeholder="例：無水きのこの炊き込みご飯">
+      </div>
+      <p class="hint">空欄のまま保存すると、メニューの文章がそのままタイトルになります。</p>
+    </div>
+
+    <div class="form-row">
       <label>写真</label>
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <button class="btn-outline" id="pick-photo-btn">📷 写真を選ぶ</button>
@@ -146,16 +186,8 @@
     </div>
 
     <div class="form-row">
-      <label>一言コメント</label>
+      <label>メニュー</label>
       <textarea id="input-comment" rows="2" placeholder="例：出汁が良く効いた。次回は少し塩控えめで。"></textarea>
-    </div>
-
-    <div class="form-row">
-      <label>タイトル</label>
-      <div class="title-row">
-        <input type="text" id="input-title" placeholder="例：無水きのこの炊き込みご飯">
-      </div>
-      <p class="hint">空欄のまま保存すると、コメントの文章がそのままタイトルになります。</p>
     </div>
 
     <p class="error-text" id="form-error" style="display:none;"></p>
@@ -173,6 +205,11 @@
     <div class="grid" id="list"></div>
   </div>
 </main>
+
+<div id="lightbox">
+  <button id="lightbox-close" aria-label="閉じる">✕</button>
+  <img id="lightbox-img" src="" alt="拡大写真">
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.1/index.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
@@ -436,29 +473,46 @@ function renderList() {
   emptyMsg.style.display = 'none';
   listWrap.style.display = 'block';
   list.innerHTML = entries.map(e => `
-    <article class="card entry">
-      <div class="stamp mono">${esc(formatDateTime(e.datetime))}</div>
+    <article class="card entry" data-id="${esc(e.id)}">
+      <div class="stamp-row"><span class="stamp mono">${esc(formatDateTime(e.datetime))}</span></div>
       <div class="entry-body">
         ${e.photo
-          ? `<div class="thumb-wrap"><img src="${e.photo}" alt="${esc(e.title)}"></div>`
+          ? `<div class="thumb-wrap"><img class="thumb-img" src="${e.photo}" alt="${esc(e.title)}"></div>`
           : `<div class="thumb-placeholder">🍚</div>`}
         <div style="min-width:0; flex:1;">
           <h3 class="serif entry-title"${e.title ? '' : ' style="color:var(--ink-light); font-style:italic;"'}>${e.title ? esc(e.title) : "(タイトル未入力・タップして編集)"}</h3>
           ${e.comment ? `<p class="entry-comment">${esc(e.comment)}</p>` : ``}
         </div>
       </div>
-      <div style="position:absolute; bottom:8px; right:8px; display:flex; gap:10px;">
-        <button class="del-btn edit-btn" data-id="${esc(e.id)}" style="position:static;">✏️ 編集</button>
-        <button class="del-btn" data-id="${esc(e.id)}" style="position:static;">🗑 削除</button>
+      <div class="entry-actions">
+        <button class="del-btn" data-id="${esc(e.id)}">🗑 削除</button>
       </div>
     </article>
   `).join("");
-  list.querySelectorAll('.edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleEdit(btn.getAttribute('data-id')));
+  list.querySelectorAll('.entry').forEach(el => {
+    el.addEventListener('click', () => handleEdit(el.getAttribute('data-id')));
   });
-  list.querySelectorAll('.del-btn:not(.edit-btn)').forEach(btn => {
-    btn.addEventListener('click', () => handleDelete(btn.getAttribute('data-id')));
+  list.querySelectorAll('.thumb-img').forEach(img => {
+    img.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      openLightbox(img.src);
+    });
   });
+  list.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      handleDelete(btn.getAttribute('data-id'));
+    });
+  });
+}
+
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+  document.getElementById('lightbox-img').src = '';
 }
 
 async function handleDelete(id) {
@@ -564,6 +618,13 @@ document.getElementById('file-input').addEventListener('change', (e) => {
   if (file) handleFileSelected(file);
 });
 document.getElementById('save-btn').addEventListener('click', handleSave);
+document.getElementById('photo-preview').style.cursor = 'zoom-in';
+document.getElementById('photo-preview').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  openLightbox(document.getElementById('photo-preview').src);
+});
+document.getElementById('lightbox').addEventListener('click', closeLightbox);
+document.getElementById('lightbox-close').addEventListener('click', (ev) => { ev.stopPropagation(); closeLightbox(); });
 
 loadEntries();
 </script>
