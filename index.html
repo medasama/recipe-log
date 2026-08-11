@@ -147,7 +147,7 @@
 <header>
   <p class="eyebrow mono">KITCHEN LOG / ネタ帳</p>
   <h1 class="serif">料理記録</h1>
-  <p class="sub">献立とレシピの記録。写真・メニュー・日付を残しておくノート。（完全オフライン・外部送信なし）</p>
+  <p class="sub">献立とレシピの記録。写真・メニュー・日付を残しておくノート。（Supabaseで同期・PC/スマホどちらでも同じ記録を閲覧できます）</p>
 </header>
 
 <div class="top-actions">
@@ -213,7 +213,13 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.1/index.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL = 'https://edfrjxjdzxutcjeayfac.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_GVtanlT_gDwSEQSsZPC_NQ_nEK-60x2';
+const TABLE = 'recipe-log';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const WEEKDAYS = ["日","月","火","水","木","金","土"];
 let entries = [];
 let currentPhotoDataUrl = null;
@@ -403,49 +409,46 @@ async function handleFileSelected(file) {
   }
 }
 
-// ---- storage (IndexedDB: ブラウザ標準機能。Claude外にホストしても動く) ----
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('recipeLogDB', 1);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('recipes')) {
-        db.createObjectStore('recipes', { keyPath: 'id' });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
+// ---- storage (Supabase: PC・スマホ間で同じデータを共有) ----
 async function dbGetAll() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('recipes', 'readonly');
-    const req = tx.objectStore('recipes').getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
+  const { data, error } = await supabaseClient.from(TABLE).select('*');
+  if (error) throw error;
+  return data || [];
 }
 
 async function dbPut(entry) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('recipes', 'readwrite');
-    tx.objectStore('recipes').put(entry);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
+  const { error } = await supabaseClient.from(TABLE).upsert(entry);
+  if (error) throw error;
+  return true;
 }
 
 async function dbDelete(id) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('recipes', 'readwrite');
-    tx.objectStore('recipes').delete(id);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
+  const { error } = await supabaseClient.from(TABLE).delete().eq('id', id);
+  if (error) throw error;
+  return true;
+}
+
+// ---- realtime sync (他端末での追加・編集・削除を反映) ----
+function upsertLocalEntry(row) {
+  const idx = entries.findIndex(e => e.id === row.id);
+  if (idx >= 0) entries[idx] = row; else entries.push(row);
+  entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+}
+
+function subscribeRealtime() {
+  supabaseClient
+    .channel('recipe-log-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, (payload) => {
+      if (payload.eventType === 'DELETE') {
+        const id = payload.old && payload.old.id;
+        if (id == null) return;
+        entries = entries.filter(e => e.id !== id);
+      } else {
+        upsertLocalEntry(payload.new);
+      }
+      renderList();
+    })
+    .subscribe();
 }
 
 async function loadEntries() {
@@ -627,6 +630,7 @@ document.getElementById('lightbox').addEventListener('click', closeLightbox);
 document.getElementById('lightbox-close').addEventListener('click', (ev) => { ev.stopPropagation(); closeLightbox(); });
 
 loadEntries();
+subscribeRealtime();
 </script>
 </body>
 </html>
