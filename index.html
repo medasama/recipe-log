@@ -48,6 +48,47 @@
     font-family: inherit; font-size: 14px; cursor: pointer;
   }
 
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%; cursor: pointer; flex-shrink: 0;
+    transition: transform 0.1s ease;
+  }
+  .icon-btn:active { transform: scale(0.94); }
+  .icon-btn-photo {
+    width: 56px; height: 56px; font-size: 24px;
+    background: var(--ink); color: var(--paper-card); border: none;
+    box-shadow: 2px 3px 0 rgba(43,58,66,0.12);
+  }
+  .icon-btn-add {
+    width: 38px; height: 38px; font-size: 17px;
+    background: transparent; color: var(--ink-light); border: 1px solid var(--line);
+  }
+  .icon-btn-add-photo {
+    width: 44px; height: 44px; font-size: 18px;
+    background: transparent; color: var(--ink-light); border: 1px dashed var(--line);
+  }
+  .photo-row { display: flex; align-items: center; gap: 10px; }
+  .photo-preview-wrap.compact { margin: 0; padding: 3px; }
+  .photo-preview-wrap.compact img { max-height: 52px; max-width: 80px; }
+
+  .ingredient-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .ingredient-input {
+    flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--line);
+    border-radius: 3px; background: transparent; font-family: inherit; font-size: 13px; color: var(--ink);
+  }
+  .ingredient-del { background: none; border: none; color: var(--ink-light); cursor: pointer; font-size: 15px; padding: 2px 4px; flex-shrink: 0; }
+  .ingredient-del:hover { color: var(--stamp); }
+  .add-ingredient-btn { margin-top: 2px; font-size: 12px; padding: 6px 10px; }
+
+  .entry-ingredients { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 6px; }
+  .ing-chip {
+    display: inline-block; font-size: 11px; color: var(--sage); border: 1px solid var(--sage);
+    border-radius: 10px; padding: 1px 8px; background: rgba(107,122,94,0.07); white-space: nowrap;
+  }
+  .entry-steps { margin: 0; padding-left: 18px; font-size: 12px; color: var(--ink-light); line-height: 1.5; }
+  @media (min-width: 480px) { .entry-steps { font-size: 13px; } }
+  .entry-steps li { margin-bottom: 2px; }
+
   .card {
     background: var(--paper-card); border: 1px solid var(--line);
     box-shadow: 2px 3px 0 rgba(43,58,66,0.06);
@@ -102,7 +143,23 @@
   .grid { display: grid; grid-template-columns: 1fr; gap: 12px; padding-top: 8px; }
   @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; gap: 16px; } }
 
-  .top-actions { padding: 0 16px 4px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .view-toggle { display: flex; gap: 8px; padding: 0 16px 4px; }
+  @media (min-width: 480px) { .view-toggle { padding: 0 24px 4px; } }
+  @media (min-width: 768px) { .view-toggle { padding: 0 48px 4px; } }
+  .view-toggle-btn {
+    font-family: inherit; font-size: 12px; padding: 5px 12px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--line); background: transparent; color: var(--ink-light);
+  }
+  .view-toggle-btn.active { background: var(--ink); color: var(--paper-card); border-color: var(--ink); }
+
+  .date-group { margin-bottom: 8px; }
+  .date-heading {
+    font-size: 13px; color: var(--ink-light); margin: 20px 0 8px; padding-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .date-group:first-child .date-heading { margin-top: 4px; }
+
+  .top-actions { padding: 0 16px 4px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
   @media (min-width: 480px) { .top-actions { padding: 0 24px 4px; } }
 
   .entry { padding: 12px; position: relative; cursor: pointer; }
@@ -147,12 +204,11 @@
 <header>
   <p class="eyebrow mono">KITCHEN LOG / ネタ帳</p>
   <h1 class="serif">料理記録</h1>
-  <p class="sub">献立とレシピの記録。写真・メニュー・日付を残しておくノート。（Supabaseで同期・PC/スマホどちらでも同じ記録を閲覧できます）</p>
 </header>
 
 <div class="top-actions">
-  <button class="add-btn" id="open-form-btn">＋ 記録を追加</button>
-  <button class="btn-outline" id="quick-photo-btn">📷 写真だけ追加</button>
+  <button class="icon-btn icon-btn-photo" id="quick-photo-btn" aria-label="写真を追加" title="写真を追加">📷</button>
+  <button class="icon-btn icon-btn-add" id="open-form-btn" aria-label="記録を詳しく追加" title="記録を詳しく追加">＋</button>
   <input type="file" id="quick-photo-input" accept="image/*,.heic,.heif" multiple style="display:none;">
 
   <div class="card" id="form-panel">
@@ -171,23 +227,28 @@
       <div class="title-row">
         <input type="text" id="input-title" placeholder="例：無水きのこの炊き込みご飯">
       </div>
-      <p class="hint">空欄のまま保存すると、メニューの文章がそのままタイトルになります。</p>
     </div>
 
     <div class="form-row">
       <label>写真</label>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-        <button class="btn-outline" id="pick-photo-btn">📷 写真を選ぶ</button>
+      <div class="photo-row">
+        <div id="photo-preview-wrap" class="photo-preview-wrap compact" style="display:none;">
+          <img id="photo-preview" src="" alt="添付写真">
+        </div>
+        <button class="icon-btn icon-btn-add-photo" id="pick-photo-btn" aria-label="写真を選ぶ" title="写真を選ぶ">📷</button>
         <input type="file" id="file-input" accept="image/*,.heic,.heif" style="display:none;">
-      </div>
-      <div id="photo-preview-wrap" class="photo-preview-wrap" style="display:none;">
-        <img id="photo-preview" src="" alt="添付写真">
       </div>
     </div>
 
     <div class="form-row">
-      <label>メニュー</label>
-      <textarea id="input-comment" rows="2" placeholder="例：出汁が良く効いた。次回は少し塩控えめで。"></textarea>
+      <label>材料</label>
+      <div id="ingredients-list"></div>
+      <button type="button" class="btn-outline btn-sage add-ingredient-btn" id="add-ingredient-btn">＋ 材料を追加</button>
+    </div>
+
+    <div class="form-row">
+      <label>作り方・メモ</label>
+      <textarea id="input-comment" rows="6" placeholder="手順や感想を自由に（1行1手順で書くと一覧で番号付きになります）。&#10;例：フライパンで香りが出るまで炒める&#10;出汁を加えて10分煮る"></textarea>
     </div>
 
     <p class="error-text" id="form-error" style="display:none;"></p>
@@ -201,8 +262,12 @@
 <main>
   <p id="loading-msg">読み込み中...</p>
   <p id="empty-msg" style="display:none;">まだ記録がありません。最初の一皿を記録してみましょう。</p>
+  <div class="view-toggle" id="view-toggle" style="display:none;">
+    <button type="button" class="view-toggle-btn" data-mode="list" id="view-list-btn">一覧表示</button>
+    <button type="button" class="view-toggle-btn" data-mode="grouped" id="view-grouped-btn">日付ごと</button>
+  </div>
   <div class="holes" id="list-wrap" style="display:none;">
-    <div class="grid" id="list"></div>
+    <div id="list"></div>
   </div>
 </main>
 
@@ -225,6 +290,8 @@ let entries = [];
 let currentPhotoDataUrl = null;
 let heicLoadPromise = null;
 let editingId = null;
+let viewMode = 'list';
+try { viewMode = localStorage.getItem('recipeLogViewMode') || 'list'; } catch (e) {}
 
 function isoToInput(iso) {
   const d = new Date(iso);
@@ -237,6 +304,78 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s == null ? "" : s;
   return d.innerHTML;
+}
+
+// ---- recipe structuring (材料 + 作り方 packed into the single `comment` field) ----
+function buildComment(ingredients, stepsText) {
+  const parts = [];
+  if (ingredients.length) {
+    parts.push('材料:\n' + ingredients.map(i => '・' + i).join('\n'));
+  }
+  if (stepsText.trim()) {
+    parts.push('作り方:\n' + stepsText.trim());
+  }
+  return parts.join('\n\n');
+}
+
+function parseComment(comment) {
+  if (!comment) return { ingredients: [], steps: '' };
+  const materialMatch = comment.match(/材料:\n([\s\S]*?)(?:\n\n作り方:|$)/);
+  const stepsMatch = comment.match(/作り方:\n([\s\S]*)$/);
+  if (materialMatch || stepsMatch) {
+    const ingredients = materialMatch
+      ? materialMatch[1].split('\n').map(s => s.replace(/^・/, '').trim()).filter(Boolean)
+      : [];
+    const steps = stepsMatch ? stepsMatch[1].trim() : '';
+    return { ingredients, steps };
+  }
+  // 旧形式（構造化前の自由記述）はそのまま「作り方」として扱う
+  return { ingredients: [], steps: comment };
+}
+
+function addIngredientRow(value = '') {
+  const wrap = document.getElementById('ingredients-list');
+  const row = document.createElement('div');
+  row.className = 'ingredient-row';
+  row.innerHTML = `
+    <input type="text" class="ingredient-input" placeholder="例：しめじ、米2合">
+    <button type="button" class="ingredient-del" aria-label="削除">✕</button>
+  `;
+  row.querySelector('.ingredient-input').value = value;
+  row.querySelector('.ingredient-del').addEventListener('click', () => {
+    row.remove();
+    if (!document.getElementById('ingredients-list').querySelector('.ingredient-row')) addIngredientRow('');
+  });
+  wrap.appendChild(row);
+}
+
+function renderIngredientRows(items) {
+  const wrap = document.getElementById('ingredients-list');
+  wrap.innerHTML = '';
+  (items && items.length ? items : ['']).forEach(val => addIngredientRow(val));
+}
+
+function collectIngredients() {
+  return Array.from(document.querySelectorAll('.ingredient-input'))
+    .map(inp => inp.value.trim())
+    .filter(Boolean);
+}
+
+function renderRecipeDisplay(comment) {
+  const { ingredients, steps } = parseComment(comment);
+  let html = '';
+  if (ingredients.length) {
+    html += `<div class="entry-ingredients">${ingredients.map(i => `<span class="ing-chip">${esc(i)}</span>`).join('')}</div>`;
+  }
+  if (steps) {
+    const lines = steps.split('\n').map(s => s.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      html += `<ol class="entry-steps">${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`;
+    } else {
+      html += `<p class="entry-comment">${esc(lines[0] || '')}</p>`;
+    }
+  }
+  return html;
 }
 
 function formatDateTime(iso) {
@@ -464,18 +603,8 @@ async function loadEntries() {
   }
 }
 
-function renderList() {
-  const listWrap = document.getElementById('list-wrap');
-  const emptyMsg = document.getElementById('empty-msg');
-  const list = document.getElementById('list');
-  if (entries.length === 0) {
-    listWrap.style.display = 'none';
-    emptyMsg.style.display = 'block';
-    return;
-  }
-  emptyMsg.style.display = 'none';
-  listWrap.style.display = 'block';
-  list.innerHTML = entries.map(e => `
+function entryCardHtml(e) {
+  return `
     <article class="card entry" data-id="${esc(e.id)}">
       <div class="stamp-row"><span class="stamp mono">${esc(formatDateTime(e.datetime))}</span></div>
       <div class="entry-body">
@@ -484,14 +613,72 @@ function renderList() {
           : `<div class="thumb-placeholder">🍚</div>`}
         <div style="min-width:0; flex:1;">
           <h3 class="serif entry-title"${e.title ? '' : ' style="color:var(--ink-light); font-style:italic;"'}>${e.title ? esc(e.title) : "(タイトル未入力・タップして編集)"}</h3>
-          ${e.comment ? `<p class="entry-comment">${esc(e.comment)}</p>` : ``}
+          ${e.comment ? renderRecipeDisplay(e.comment) : ``}
         </div>
       </div>
       <div class="entry-actions">
         <button class="del-btn" data-id="${esc(e.id)}">🗑 削除</button>
       </div>
     </article>
-  `).join("");
+  `;
+}
+
+function formatDateHeading(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "日付不明";
+  return `${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
+}
+
+function groupEntriesByDate(items) {
+  const groups = [];
+  const indexByKey = new Map();
+  items.forEach(e => {
+    const d = new Date(e.datetime);
+    const key = isNaN(d.getTime()) ? "unknown" : `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if (!indexByKey.has(key)) {
+      indexByKey.set(key, groups.length);
+      groups.push({ key, items: [] });
+    }
+    groups[indexByKey.get(key)].items.push(e);
+  });
+  return groups;
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  try { localStorage.setItem('recipeLogViewMode', mode); } catch (e) {}
+  document.getElementById('view-list-btn').classList.toggle('active', mode === 'list');
+  document.getElementById('view-grouped-btn').classList.toggle('active', mode === 'grouped');
+  renderList();
+}
+
+function renderList() {
+  const listWrap = document.getElementById('list-wrap');
+  const emptyMsg = document.getElementById('empty-msg');
+  const toggle = document.getElementById('view-toggle');
+  const list = document.getElementById('list');
+  if (entries.length === 0) {
+    listWrap.style.display = 'none';
+    emptyMsg.style.display = 'block';
+    toggle.style.display = 'none';
+    return;
+  }
+  emptyMsg.style.display = 'none';
+  listWrap.style.display = 'block';
+  toggle.style.display = 'flex';
+
+  if (viewMode === 'grouped') {
+    const groups = groupEntriesByDate(entries);
+    list.innerHTML = groups.map(g => `
+      <div class="date-group">
+        <h2 class="date-heading serif">${esc(formatDateHeading(g.items[0].datetime))}</h2>
+        <div class="grid">${g.items.map(entryCardHtml).join("")}</div>
+      </div>
+    `).join("");
+  } else {
+    list.innerHTML = `<div class="grid">${entries.map(entryCardHtml).join("")}</div>`;
+  }
+
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', () => handleEdit(el.getAttribute('data-id')));
   });
@@ -533,7 +720,9 @@ function handleEdit(id) {
   if (!entry) return;
   editingId = id;
   document.getElementById('input-datetime').value = isoToInput(entry.datetime);
-  document.getElementById('input-comment').value = entry.comment || "";
+  const { ingredients, steps } = parseComment(entry.comment || '');
+  renderIngredientRows(ingredients);
+  document.getElementById('input-comment').value = steps;
   document.getElementById('input-title').value = entry.title || "";
   currentPhotoDataUrl = entry.photo || null;
   if (entry.photo) {
@@ -552,10 +741,12 @@ function handleEdit(id) {
 
 async function handleSave() {
   const title = document.getElementById('input-title').value.trim();
-  const comment = document.getElementById('input-comment').value.trim();
+  const ingredients = collectIngredients();
+  const stepsText = document.getElementById('input-comment').value.trim();
+  const comment = buildComment(ingredients, stepsText);
   const datetime = document.getElementById('input-datetime').value;
   if (!title && !comment && !currentPhotoDataUrl) {
-    setFormError("タイトル・コメント・写真のいずれかを入力してください。");
+    setFormError("タイトル・材料・作り方・写真のいずれかを入力してください。");
     return;
   }
   const saveBtn = document.getElementById('save-btn');
@@ -590,6 +781,7 @@ async function handleSave() {
 function resetForm() {
   editingId = null;
   document.getElementById('input-datetime').value = nowForInput();
+  renderIngredientRows(['']);
   document.getElementById('input-comment').value = "";
   document.getElementById('input-title').value = "";
   currentPhotoDataUrl = null;
@@ -604,6 +796,12 @@ function resetForm() {
 
 // ---- wire up ----
 document.getElementById('input-datetime').value = nowForInput();
+renderIngredientRows(['']);
+document.getElementById('add-ingredient-btn').addEventListener('click', () => addIngredientRow(''));
+document.getElementById('view-list-btn').classList.toggle('active', viewMode === 'list');
+document.getElementById('view-grouped-btn').classList.toggle('active', viewMode === 'grouped');
+document.getElementById('view-list-btn').addEventListener('click', () => setViewMode('list'));
+document.getElementById('view-grouped-btn').addEventListener('click', () => setViewMode('grouped'));
 document.getElementById('open-form-btn').addEventListener('click', () => {
   document.getElementById('form-panel').style.display = 'block';
   document.getElementById('open-form-btn').style.display = 'none';
