@@ -85,6 +85,7 @@
     display: inline-block; font-size: 11px; color: var(--sage); border: 1px solid var(--sage);
     border-radius: 10px; padding: 1px 8px; background: rgba(107,122,94,0.07); white-space: nowrap;
   }
+  .shop-chip { color: var(--stamp); border-color: var(--stamp); background: rgba(165,67,47,0.07); }
   .entry-steps { margin: 0; padding-left: 18px; font-size: 12px; color: var(--ink-light); line-height: 1.5; }
   @media (min-width: 480px) { .entry-steps { font-size: 13px; } }
   .entry-steps li { margin-bottom: 2px; }
@@ -124,6 +125,29 @@
   .error-text { font-size: 12px; color: var(--stamp); margin: 0 0 12px; }
   .close-btn { background: none; border: none; color: var(--ink-light); cursor: pointer; font-size: 16px; }
   .form-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+
+  .day-siblings-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px dashed var(--line); }
+  .day-sibling-item {
+    flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    cursor: pointer; border: none; background: none; padding: 0; font-family: inherit; opacity: 0.55;
+  }
+  .day-sibling-item.active { opacity: 1; }
+  .day-sibling-thumb, .day-sibling-thumb-placeholder {
+    width: 40px; height: 40px; border-radius: 2px; box-sizing: border-box; border: 2px solid transparent;
+  }
+  .day-sibling-thumb { object-fit: cover; display: block; }
+  .day-sibling-thumb-placeholder { display: flex; align-items: center; justify-content: center; background: var(--paper); font-size: 16px; }
+  .day-sibling-item.active .day-sibling-thumb,
+  .day-sibling-item.active .day-sibling-thumb-placeholder { border-color: var(--sage); }
+  .day-sibling-time { font-size: 10px; color: var(--ink-light); }
+
+  .mode-toggle { display: flex; gap: 0; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .mode-toggle-btn {
+    flex: 1; font-family: inherit; font-size: 13px; padding: 9px 8px; cursor: pointer;
+    border: none; background: transparent; color: var(--ink-light);
+  }
+  .mode-toggle-btn + .mode-toggle-btn { border-left: 1px solid var(--line); }
+  .mode-toggle-btn.active { background: var(--ink); color: var(--paper-card); }
 
   .photo-preview-wrap { display: inline-block; max-width: 100%; padding: 4px; background: var(--tape); transform: rotate(-1.5deg); margin: 8px 0 16px; }
   .photo-preview-wrap img { display: block; width: auto; max-width: 100%; max-height: 160px; border-radius: 2px; }
@@ -217,6 +241,13 @@
       <button class="close-btn" id="close-form-btn">✕</button>
     </div>
 
+    <div id="day-siblings-strip" class="day-siblings-strip" style="display:none;"></div>
+
+    <div class="mode-toggle" id="mode-toggle">
+      <button type="button" class="mode-toggle-btn active" id="mode-cook-btn">🍳 自炊</button>
+      <button type="button" class="mode-toggle-btn" id="mode-eatout-btn">🍱 外食・惣菜</button>
+    </div>
+
     <div class="form-row">
       <label>日付・時間</label>
       <input type="datetime-local" id="input-datetime" class="mono">
@@ -240,15 +271,28 @@
       </div>
     </div>
 
-    <div class="form-row">
-      <label>材料</label>
-      <div id="ingredients-list"></div>
-      <button type="button" class="btn-outline btn-sage add-ingredient-btn" id="add-ingredient-btn">＋ 材料を追加</button>
+    <div id="cook-fields">
+      <div class="form-row">
+        <label>材料</label>
+        <div id="ingredients-list"></div>
+        <button type="button" class="btn-outline btn-sage add-ingredient-btn" id="add-ingredient-btn">＋ 材料を追加</button>
+      </div>
+
+      <div class="form-row">
+        <label>作り方・メモ</label>
+        <textarea id="input-comment" rows="6" placeholder="手順や感想を自由に（1行1手順で書くと一覧で番号付きになります）。&#10;例：フライパンで香りが出るまで炒める&#10;出汁を加えて10分煮る"></textarea>
+      </div>
     </div>
 
-    <div class="form-row">
-      <label>作り方・メモ</label>
-      <textarea id="input-comment" rows="6" placeholder="手順や感想を自由に（1行1手順で書くと一覧で番号付きになります）。&#10;例：フライパンで香りが出るまで炒める&#10;出汁を加えて10分煮る"></textarea>
+    <div id="eatout-fields" style="display:none;">
+      <div class="form-row">
+        <label>店名</label>
+        <input type="text" id="input-shop" placeholder="例：〇〇食堂、セブンイレブン">
+      </div>
+      <div class="form-row">
+        <label>メニュー</label>
+        <input type="text" id="input-menu" placeholder="例：唐揚げ弁当、天ぷらそば">
+      </div>
     </div>
 
     <p class="error-text" id="form-error" style="display:none;"></p>
@@ -292,6 +336,7 @@ let heicLoadPromise = null;
 let editingId = null;
 let viewMode = 'list';
 try { viewMode = localStorage.getItem('recipeLogViewMode') || 'list'; } catch (e) {}
+let formMode = 'cook';
 
 function isoToInput(iso) {
   const d = new Date(iso);
@@ -306,7 +351,8 @@ function esc(s) {
   return d.innerHTML;
 }
 
-// ---- recipe structuring (材料 + 作り方 packed into the single `comment` field) ----
+// ---- content structuring, packed into the single `comment` field ----
+// 自炊モード: 材料:/作り方: 見出し付きテキスト。 外食・惣菜モード: 店名:/メニュー: 見出し付きテキスト。
 function buildComment(ingredients, stepsText) {
   const parts = [];
   if (ingredients.length) {
@@ -318,8 +364,17 @@ function buildComment(ingredients, stepsText) {
   return parts.join('\n\n');
 }
 
+function buildEatoutComment(shopName, menuItem) {
+  return `店名: ${shopName.trim()}\nメニュー: ${menuItem.trim()}`;
+}
+
 function parseComment(comment) {
-  if (!comment) return { ingredients: [], steps: '' };
+  const empty = { mode: 'cook', ingredients: [], steps: '', shopName: '', menuItem: '' };
+  if (!comment) return empty;
+  const shopMatch = comment.match(/^店名:\s*([\s\S]*?)\nメニュー:\s*([\s\S]*)$/);
+  if (shopMatch) {
+    return { mode: 'eatout', ingredients: [], steps: '', shopName: shopMatch[1].trim(), menuItem: shopMatch[2].trim() };
+  }
   const materialMatch = comment.match(/材料:\n([\s\S]*?)(?:\n\n作り方:|$)/);
   const stepsMatch = comment.match(/作り方:\n([\s\S]*)$/);
   if (materialMatch || stepsMatch) {
@@ -327,10 +382,18 @@ function parseComment(comment) {
       ? materialMatch[1].split('\n').map(s => s.replace(/^・/, '').trim()).filter(Boolean)
       : [];
     const steps = stepsMatch ? stepsMatch[1].trim() : '';
-    return { ingredients, steps };
+    return { mode: 'cook', ingredients, steps, shopName: '', menuItem: '' };
   }
   // 旧形式（構造化前の自由記述）はそのまま「作り方」として扱う
-  return { ingredients: [], steps: comment };
+  return { mode: 'cook', ingredients: [], steps: comment, shopName: '', menuItem: '' };
+}
+
+function setFormMode(mode) {
+  formMode = mode;
+  document.getElementById('mode-cook-btn').classList.toggle('active', mode === 'cook');
+  document.getElementById('mode-eatout-btn').classList.toggle('active', mode === 'eatout');
+  document.getElementById('cook-fields').style.display = mode === 'cook' ? '' : 'none';
+  document.getElementById('eatout-fields').style.display = mode === 'eatout' ? '' : 'none';
 }
 
 function addIngredientRow(value = '') {
@@ -362,13 +425,22 @@ function collectIngredients() {
 }
 
 function renderRecipeDisplay(comment) {
-  const { ingredients, steps } = parseComment(comment);
+  const parsed = parseComment(comment);
   let html = '';
-  if (ingredients.length) {
-    html += `<div class="entry-ingredients">${ingredients.map(i => `<span class="ing-chip">${esc(i)}</span>`).join('')}</div>`;
+  if (parsed.mode === 'eatout') {
+    if (parsed.shopName) {
+      html += `<div class="entry-ingredients"><span class="ing-chip shop-chip">🏮 ${esc(parsed.shopName)}</span></div>`;
+    }
+    if (parsed.menuItem) {
+      html += `<p class="entry-comment">${esc(parsed.menuItem)}</p>`;
+    }
+    return html;
   }
-  if (steps) {
-    const lines = steps.split('\n').map(s => s.trim()).filter(Boolean);
+  if (parsed.ingredients.length) {
+    html += `<div class="entry-ingredients">${parsed.ingredients.map(i => `<span class="ing-chip">${esc(i)}</span>`).join('')}</div>`;
+  }
+  if (parsed.steps) {
+    const lines = parsed.steps.split('\n').map(s => s.trim()).filter(Boolean);
     if (lines.length > 1) {
       html += `<ol class="entry-steps">${lines.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`;
     } else {
@@ -715,14 +787,52 @@ async function handleDelete(id) {
   }
 }
 
+function getSameDateEntries(entry) {
+  const d = new Date(entry.datetime);
+  if (isNaN(d.getTime())) return [entry];
+  return entries
+    .filter(e => {
+      const ed = new Date(e.datetime);
+      return !isNaN(ed.getTime()) && ed.getFullYear() === d.getFullYear() && ed.getMonth() === d.getMonth() && ed.getDate() === d.getDate();
+    })
+    .sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+}
+
+function renderDaySiblingsStrip(entry) {
+  const strip = document.getElementById('day-siblings-strip');
+  if (viewMode !== 'grouped') { strip.style.display = 'none'; strip.innerHTML = ''; return; }
+  const siblings = getSameDateEntries(entry);
+  if (siblings.length < 2) { strip.style.display = 'none'; strip.innerHTML = ''; return; }
+  strip.innerHTML = siblings.map(s => `
+    <button type="button" class="day-sibling-item${s.id === entry.id ? ' active' : ''}" data-id="${esc(s.id)}">
+      ${s.photo ? `<img class="day-sibling-thumb" src="${s.photo}" alt="">` : `<div class="day-sibling-thumb-placeholder">🍚</div>`}
+      <span class="day-sibling-time mono">${esc(formatDateTime(s.datetime).split(' ').pop())}</span>
+    </button>
+  `).join('');
+  strip.style.display = 'flex';
+  strip.querySelectorAll('.day-sibling-item').forEach(btn => {
+    btn.addEventListener('click', () => handleEdit(btn.getAttribute('data-id')));
+  });
+}
+
 function handleEdit(id) {
   const entry = entries.find(e => e.id === id);
   if (!entry) return;
   editingId = id;
   document.getElementById('input-datetime').value = isoToInput(entry.datetime);
-  const { ingredients, steps } = parseComment(entry.comment || '');
-  renderIngredientRows(ingredients);
-  document.getElementById('input-comment').value = steps;
+  const parsed = parseComment(entry.comment || '');
+  setFormMode(parsed.mode);
+  if (parsed.mode === 'eatout') {
+    document.getElementById('input-shop').value = parsed.shopName;
+    document.getElementById('input-menu').value = parsed.menuItem;
+    renderIngredientRows(['']);
+    document.getElementById('input-comment').value = "";
+  } else {
+    renderIngredientRows(parsed.ingredients);
+    document.getElementById('input-comment').value = parsed.steps;
+    document.getElementById('input-shop').value = "";
+    document.getElementById('input-menu').value = "";
+  }
   document.getElementById('input-title').value = entry.title || "";
   currentPhotoDataUrl = entry.photo || null;
   if (entry.photo) {
@@ -731,6 +841,7 @@ function handleEdit(id) {
   } else {
     document.getElementById('photo-preview-wrap').style.display = 'none';
   }
+  renderDaySiblingsStrip(entry);
   document.querySelector('#form-panel .form-head h2').textContent = '記録を編集';
   document.getElementById('save-btn').textContent = '更新する';
   document.getElementById('form-panel').style.display = 'block';
@@ -741,14 +852,27 @@ function handleEdit(id) {
 
 async function handleSave() {
   const title = document.getElementById('input-title').value.trim();
-  const ingredients = collectIngredients();
-  const stepsText = document.getElementById('input-comment').value.trim();
-  const comment = buildComment(ingredients, stepsText);
-  const datetime = document.getElementById('input-datetime').value;
-  if (!title && !comment && !currentPhotoDataUrl) {
-    setFormError("タイトル・材料・作り方・写真のいずれかを入力してください。");
-    return;
+  let comment, fallbackTitle;
+  if (formMode === 'eatout') {
+    const shopName = document.getElementById('input-shop').value.trim();
+    const menuItem = document.getElementById('input-menu').value.trim();
+    comment = (shopName || menuItem) ? buildEatoutComment(shopName, menuItem) : "";
+    fallbackTitle = [shopName, menuItem].filter(Boolean).join(" - ");
+    if (!title && !comment && !currentPhotoDataUrl) {
+      setFormError("タイトル・店名・メニュー・写真のいずれかを入力してください。");
+      return;
+    }
+  } else {
+    const ingredients = collectIngredients();
+    const stepsText = document.getElementById('input-comment').value.trim();
+    comment = buildComment(ingredients, stepsText);
+    fallbackTitle = comment;
+    if (!title && !comment && !currentPhotoDataUrl) {
+      setFormError("タイトル・材料・作り方・写真のいずれかを入力してください。");
+      return;
+    }
   }
+  const datetime = document.getElementById('input-datetime').value;
   const saveBtn = document.getElementById('save-btn');
   saveBtn.disabled = true; const origText = saveBtn.textContent; saveBtn.textContent = editingId ? '更新中...' : '保存中...';
   setFormError("");
@@ -756,7 +880,7 @@ async function handleSave() {
   const entry = {
     id,
     datetime: new Date(datetime).toISOString(),
-    title: title || comment || "無題の記録",
+    title: title || fallbackTitle || "無題の記録",
     comment,
     photo: currentPhotoDataUrl
   };
@@ -780,13 +904,18 @@ async function handleSave() {
 
 function resetForm() {
   editingId = null;
+  setFormMode('cook');
   document.getElementById('input-datetime').value = nowForInput();
   renderIngredientRows(['']);
   document.getElementById('input-comment').value = "";
+  document.getElementById('input-shop').value = "";
+  document.getElementById('input-menu').value = "";
   document.getElementById('input-title').value = "";
   currentPhotoDataUrl = null;
   document.getElementById('photo-preview-wrap').style.display = 'none';
   document.getElementById('file-input').value = "";
+  document.getElementById('day-siblings-strip').style.display = 'none';
+  document.getElementById('day-siblings-strip').innerHTML = '';
   document.getElementById('form-panel').style.display = 'none';
   document.getElementById('open-form-btn').style.display = 'inline-flex';
   document.querySelector('#form-panel .form-head h2').textContent = '新しい記録';
@@ -798,6 +927,8 @@ function resetForm() {
 document.getElementById('input-datetime').value = nowForInput();
 renderIngredientRows(['']);
 document.getElementById('add-ingredient-btn').addEventListener('click', () => addIngredientRow(''));
+document.getElementById('mode-cook-btn').addEventListener('click', () => setFormMode('cook'));
+document.getElementById('mode-eatout-btn').addEventListener('click', () => setFormMode('eatout'));
 document.getElementById('view-list-btn').classList.toggle('active', viewMode === 'list');
 document.getElementById('view-grouped-btn').classList.toggle('active', viewMode === 'grouped');
 document.getElementById('view-list-btn').addEventListener('click', () => setViewMode('list'));
