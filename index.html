@@ -305,6 +305,7 @@
 
 <main>
   <p id="loading-msg">読み込み中...</p>
+  <button class="btn-save" id="retry-btn" style="display:none; margin:8px 0;">再読み込み</button>
   <p id="empty-msg" style="display:none;">まだ記録がありません。最初の一皿を記録してみましょう。</p>
   <div class="view-toggle" id="view-toggle" style="display:none;">
     <button type="button" class="view-toggle-btn" data-mode="list" id="view-list-btn">一覧表示</button>
@@ -621,10 +622,29 @@ async function handleFileSelected(file) {
 }
 
 // ---- storage (Supabase: PC・スマホ間で同じデータを共有) ----
+// 一覧は軽い列だけ取得（写真はbase64で巨大なので別途1件ずつ読む）
 async function dbGetAll() {
-  const { data, error } = await supabaseClient.from(TABLE).select('*');
+  const { data, error } = await supabaseClient.from(TABLE).select('id,datetime,title,comment');
   if (error) throw error;
   return data || [];
+}
+
+async function dbGetPhoto(id) {
+  const { data, error } = await supabaseClient.from(TABLE).select('photo').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? (data.photo || null) : null;
+}
+
+async function withRetry(fn, tries = 3) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); }
+    catch (e) {
+      lastErr = e;
+      if (i < tries - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 async function dbPut(entry) {
@@ -642,7 +662,7 @@ async function dbDelete(id) {
 // ---- realtime sync (他端末での追加・編集・削除を反映) ----
 function upsertLocalEntry(row) {
   const idx = entries.findIndex(e => e.id === row.id);
-  if (idx >= 0) entries[idx] = row; else entries.push(row);
+  if (idx >= 0) entries[idx] = { ...entries[idx], ...row }; else entries.push(row);
   entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
 }
 
@@ -663,16 +683,57 @@ function subscribeRealtime() {
 }
 
 async function loadEntries() {
+  const msg = document.getElementById('loading-msg');
+  const retryBtn = document.getElementById('retry-btn');
+  msg.style.display = 'block';
+  msg.textContent = '読み込み中...';
+  retryBtn.style.display = 'none';
+  setOuterError("");
+  let ok = false;
   try {
-    const items = await dbGetAll();
+    const items = await withRetry(dbGetAll);
     items.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
     entries = items;
+    ok = true;
   } catch (e) {
-    setOuterError("記録の読み込みに失敗しました。");
+    setOuterError("記録の読み込みに失敗しました。通信状況を確認して、もう一度お試しください。");
+    retryBtn.style.display = 'inline-block';
   } finally {
-    document.getElementById('loading-msg').style.display = 'none';
+    msg.style.display = 'none';
     renderList();
   }
+  if (ok) loadPhotosInBackground();
+}
+
+// 写真を新しい順に1件ずつ読み込み、届いた分からカードに反映
+async function loadPhotosInBackground() {
+  for (const e of entries.slice()) {
+    if (e.photo !== undefined) continue;
+    try {
+      const photo = await withRetry(() => dbGetPhoto(e.id), 2);
+      const cur = entries.find(x => x.id === e.id);
+      if (!cur) continue;
+      if (cur.photo === undefined) cur.photo = photo;
+      applyPhotoToCard(cur);
+    } catch (err) { /* 失敗した分は未取得のまま（編集時に再取得） */ }
+  }
+}
+
+function applyPhotoToCard(entry) {
+  if (!entry.photo) return;
+  document.querySelectorAll(`.entry[data-id="${CSS.escape(entry.id)}"]`).forEach(card => {
+    const ph = card.querySelector('.thumb-placeholder');
+    if (!ph) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-wrap';
+    const img = document.createElement('img');
+    img.className = 'thumb-img';
+    img.src = entry.photo;
+    img.alt = entry.title || '';
+    img.addEventListener('click', (ev) => { ev.stopPropagation(); openLightbox(img.src); });
+    wrap.appendChild(img);
+    ph.replaceWith(wrap);
+  });
 }
 
 function entryCardHtml(e) {
@@ -815,9 +876,19 @@ function renderDaySiblingsStrip(entry) {
   });
 }
 
-function handleEdit(id) {
+async function handleEdit(id) {
   const entry = entries.find(e => e.id === id);
   if (!entry) return;
+  // 写真が未取得のまま保存すると写真が消えるため、先に取得する
+  if (entry.photo === undefined) {
+    try {
+      entry.photo = await withRetry(() => dbGetPhoto(id), 2);
+    } catch (err) {
+      setOuterError("写真の読み込みに失敗したため編集を開けませんでした。少し待ってからもう一度お試しください。");
+      return;
+    }
+    applyPhotoToCard(entry);
+  }
   editingId = id;
   document.getElementById('input-datetime').value = isoToInput(entry.datetime);
   const parsed = parseComment(entry.comment || '');
@@ -958,6 +1029,7 @@ document.getElementById('photo-preview').addEventListener('click', (ev) => {
 document.getElementById('lightbox').addEventListener('click', closeLightbox);
 document.getElementById('lightbox-close').addEventListener('click', (ev) => { ev.stopPropagation(); closeLightbox(); });
 
+document.getElementById('retry-btn').addEventListener('click', loadEntries);
 loadEntries();
 subscribeRealtime();
 </script>
