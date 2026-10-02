@@ -71,6 +71,20 @@
   .photo-preview-wrap.compact { margin: 0; padding: 3px; }
   .photo-preview-wrap.compact img { max-height: 52px; max-width: 80px; }
 
+  /* 右下固定のFAB（写真追加が主な操作のため、常に親指で押せる位置に） */
+  .fab-stack {
+    position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 50;
+  }
+  .fab {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
+    transition: transform 0.1s ease; box-shadow: 0 4px 14px rgba(43,58,66,0.28);
+  }
+  .fab:active { transform: scale(0.93); }
+  .fab-camera { width: 60px; height: 60px; font-size: 26px; background: var(--ink); color: var(--paper-card); }
+  .fab-paste { width: 46px; height: 46px; font-size: 18px; background: var(--paper-card); color: var(--sage); border: 1px solid var(--sage); box-shadow: 0 2px 8px rgba(43,58,66,0.18); }
+
   .ingredient-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
   .ingredient-input {
     flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--line);
@@ -152,9 +166,9 @@
   .photo-preview-wrap { display: inline-block; max-width: 100%; padding: 4px; background: var(--tape); transform: rotate(-1.5deg); margin: 8px 0 16px; }
   .photo-preview-wrap img { display: block; width: auto; max-width: 100%; max-height: 160px; border-radius: 2px; }
 
-  main { padding: 16px 4px 60px; }
-  @media (min-width: 480px) { main { padding: 16px 8px 60px; } }
-  @media (min-width: 768px) { main { padding: 16px 48px 60px; } }
+  main { padding: 16px 4px 140px; }
+  @media (min-width: 480px) { main { padding: 16px 8px 140px; } }
+  @media (min-width: 768px) { main { padding: 16px 48px 140px; } }
   #empty-msg, #loading-msg { font-size: 14px; color: var(--ink-light); padding: 0 16px; }
 
   .holes {
@@ -185,6 +199,12 @@
 
   .top-actions { padding: 0 16px 4px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
   @media (min-width: 480px) { .top-actions { padding: 0 24px 4px; } }
+  .detail-add-link {
+    font-family: inherit; font-size: 12px; color: var(--ink-light); background: none; border: none;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 6px 4px;
+  }
+  #form-anchor { padding: 0 16px; }
+  @media (min-width: 480px) { #form-anchor { padding: 0 24px; } }
 
   .entry { padding: 12px; position: relative; cursor: pointer; }
   @media (min-width: 480px) { .entry { padding: 16px; } }
@@ -231,10 +251,10 @@
 </header>
 
 <div class="top-actions">
-  <button class="icon-btn icon-btn-photo" id="quick-photo-btn" aria-label="写真を追加" title="写真を追加">📷</button>
-  <button class="icon-btn icon-btn-add" id="open-form-btn" aria-label="記録を詳しく追加" title="記録を詳しく追加">＋</button>
-  <input type="file" id="quick-photo-input" accept="image/*,.heic,.heif" multiple style="display:none;">
+  <button class="detail-add-link" id="open-form-btn">＋ 詳しく記録する</button>
+</div>
 
+<div id="form-anchor">
   <div class="card" id="form-panel">
     <div class="form-head">
       <h2 class="serif" style="margin:0; font-size:18px;">新しい記録</h2>
@@ -299,9 +319,15 @@
 
     <button class="btn-save" id="save-btn">記録を保存</button>
   </div>
-  <p class="error-text" id="outer-error" style="display:none; margin-top:8px;"></p>
-  <p class="hint" id="quick-add-status" style="display:none; margin-top:8px;"></p>
 </div>
+<p class="error-text" id="outer-error" style="display:none; margin: 0 16px 8px;"></p>
+<p class="hint" id="quick-add-status" style="display:none; margin: 0 16px 8px;"></p>
+
+<div class="fab-stack">
+  <button class="fab fab-paste" id="paste-photo-btn" aria-label="写真を貼り付け" title="写真を貼り付け">📋</button>
+  <button class="fab fab-camera" id="quick-photo-btn" aria-label="写真を追加" title="写真を追加">📷</button>
+</div>
+<input type="file" id="quick-photo-input" accept="image/*,.heic,.heif" multiple style="display:none;">
 
 <main>
   <p id="loading-msg">読み込み中...</p>
@@ -340,6 +366,13 @@ let viewMode = 'list';
 try { viewMode = localStorage.getItem('recipeLogViewMode') || 'list'; } catch (e) {}
 let formMode = 'cook';
 
+// ---- 重複検出用ハッシュ(写真データの内容からSHA-256を計算) ----
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 function isoToInput(iso) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return nowForInput();
@@ -351,13 +384,6 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s == null ? "" : s;
   return d.innerHTML;
-}
-
-// ---- 重複検出用ハッシュ(写真データの内容からSHA-256を計算) ----
-async function sha256Hex(text) {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ---- content structuring, packed into the single `comment` field ----
@@ -616,6 +642,45 @@ async function handleQuickAddPhotos(fileList) {
   if (duplicate > 0) notes.push(`${duplicate}件は既存と同じ写真のためスキップしました`);
   if (failed > 0) notes.push(`${failed}件は取り込めませんでした（HEIC変換の失敗など）`);
   if (notes.length) setOuterError(notes.join('。') + '。');
+}
+
+// ---- クリップボードからの貼り付け ----
+async function handlePasteButton() {
+  if (!navigator.clipboard || !navigator.clipboard.read) {
+    setOuterError("この端末・ブラウザはボタンでの貼り付けに対応していません。写真アプリでコピー後、このページの何もない場所を長押しして「ペースト」を選んでください。");
+    return;
+  }
+  try {
+    const items = await navigator.clipboard.read();
+    const files = [];
+    for (const item of items) {
+      for (const type of item.types) {
+        if (type.startsWith('image/')) {
+          const blob = await item.getType(type);
+          files.push(new File([blob], `pasted-${Date.now()}.${type.split('/')[1] || 'jpg'}`, { type }));
+        }
+      }
+    }
+    if (!files.length) {
+      setOuterError("クリップボードに写真が見つかりませんでした。写真アプリで画像をコピーしてから、もう一度お試しください。");
+      return;
+    }
+    handleQuickAddPhotos(files);
+  } catch (e) {
+    setOuterError("クリップボードを読み取れませんでした。写真アプリで画像をコピーしてから、もう一度お試しください（権限を聞かれたら許可してください）。");
+  }
+}
+
+function extractImageFilesFromClipboard(clipboardData) {
+  if (!clipboardData || !clipboardData.items) return [];
+  const files = [];
+  for (const item of clipboardData.items) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  return files;
 }
 
 async function handleFileSelected(file) {
@@ -1072,6 +1137,18 @@ document.getElementById('quick-photo-input').addEventListener('change', (e) => {
   const files = e.target.files;
   if (files && files.length) handleQuickAddPhotos(files);
   e.target.value = "";
+});
+document.getElementById('paste-photo-btn').addEventListener('click', handlePasteButton);
+// ページ上で実際にペースト操作をした場合も拾う（フォームが開いていれば写真欄に、閉じていれば「写真だけ追加」と同じ扱いに）
+document.addEventListener('paste', (ev) => {
+  const files = extractImageFilesFromClipboard(ev.clipboardData);
+  if (!files.length) return;
+  ev.preventDefault();
+  if (document.getElementById('form-panel').style.display === 'block') {
+    handleFileSelected(files[0]);
+  } else {
+    handleQuickAddPhotos(files);
+  }
 });
 document.getElementById('pick-photo-btn').addEventListener('click', () => document.getElementById('file-input').click());
 document.getElementById('file-input').addEventListener('change', (e) => {
