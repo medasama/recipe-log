@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>料理記録</title>
+<title>食と酒の記録</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap');
 
@@ -16,6 +16,10 @@
     --stamp: #a5432f;
     --tape: #ddd2b3;
     --sage: #6b7a5e;
+    --wine: #6d1f2c;
+    --wine-soft: rgba(109,31,44,0.08);
+    --sake: #9c7a2e;
+    --sake-soft: rgba(156,122,46,0.1);
   }
   * { box-sizing: border-box; }
   html, body {
@@ -32,14 +36,26 @@
   img { max-width: 100%; height: auto; }
   .serif { font-family: 'Shippori Mincho', serif; }
   .mono { font-family: 'JetBrains Mono', monospace; }
-  header { padding: 28px 16px 16px; }
-  @media (min-width: 480px) { header { padding: 40px 24px 20px; } }
-  @media (min-width: 768px) { header { padding: 40px 48px 20px; } }
+  header { padding: 28px 16px 10px; }
+  @media (min-width: 480px) { header { padding: 40px 24px 14px; } }
+  @media (min-width: 768px) { header { padding: 40px 48px 14px; } }
   .eyebrow { font-size: 11px; letter-spacing: 0.1em; color: var(--ink-light); margin: 0; }
   h1 { font-size: 26px; margin: 4px 0 8px; }
   @media (min-width: 480px) { h1 { font-size: 32px; } }
   .sub { font-size: 13px; color: var(--ink-light); margin: 0; line-height: 1.5; }
   @media (min-width: 480px) { .sub { font-size: 14px; } }
+
+  /* ---- タブ切り替え（料理／お酒） ---- */
+  .main-tabs { display: flex; gap: 8px; padding: 0 16px 10px; }
+  @media (min-width: 480px) { .main-tabs { padding: 0 24px 10px; } }
+  @media (min-width: 768px) { .main-tabs { padding: 0 48px 10px; } }
+  .main-tab-btn {
+    flex: 1; font-family: inherit; font-size: 14px; padding: 10px 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--paper-card); color: var(--ink-light); border-radius: 4px;
+  }
+  .main-tab-btn.active { background: var(--ink); color: var(--paper-card); border-color: var(--ink); }
+  .main-tab-panel { display: none; }
+  .main-tab-panel.active { display: block; }
 
   .add-btn {
     display: inline-flex; align-items: center; gap: 8px;
@@ -59,6 +75,7 @@
     background: var(--ink); color: var(--paper-card); border: none;
     box-shadow: 2px 3px 0 rgba(43,58,66,0.12);
   }
+  #lb-quick-photo-btn { width: 52px; height: 52px; font-size: 22px; }
   .icon-btn-add {
     width: 38px; height: 38px; font-size: 17px;
     background: transparent; color: var(--ink-light); border: 1px solid var(--line);
@@ -71,7 +88,7 @@
   .photo-preview-wrap.compact { margin: 0; padding: 3px; }
   .photo-preview-wrap.compact img { max-height: 52px; max-width: 80px; }
 
-  /* 右下固定のFAB（写真追加が主な操作のため、常に親指で押せる位置に） */
+  /* 右下固定のFAB（料理タブ：写真追加が主な操作のため、常に親指で押せる位置に） */
   .fab-stack {
     position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px));
     display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 50;
@@ -91,6 +108,9 @@
     position: fixed; right: 18px; bottom: calc(96px + env(safe-area-inset-bottom, 0px));
     z-index: 50; width: 196px;
   }
+  .paste-fallback-inline { padding: 0 16px 8px; }
+  @media (min-width: 480px) { .paste-fallback-inline { padding: 0 24px 8px; } }
+  .paste-fallback-inline .paste-target-input { max-width: 260px; }
   .paste-target-input {
     width: 100%; box-sizing: border-box; padding: 10px 12px; font-family: inherit; font-size: 12px;
     border: 1px dashed var(--sage); border-radius: 20px; background: var(--paper-card); color: var(--ink-light);
@@ -128,8 +148,8 @@
     border-radius: 3px;
   }
 
-  #form-panel { max-width: 480px; padding: 16px; display: none; margin-top: 4px; }
-  @media (min-width: 480px) { #form-panel { padding: 20px 24px; } }
+  #form-panel, #lb-form-panel { max-width: 480px; padding: 16px; display: none; margin-top: 4px; }
+  @media (min-width: 480px) { #form-panel, #lb-form-panel { padding: 20px 24px; } }
   .form-row { margin-bottom: 16px; }
   .form-row label { display: block; font-size: 12px; color: var(--ink-light); margin-bottom: 4px; }
   .form-row input[type="text"],
@@ -173,21 +193,48 @@
   .day-sibling-item.active .day-sibling-thumb-placeholder { border-color: var(--sage); }
   .day-sibling-time { font-size: 10px; color: var(--ink-light); }
 
-  .mode-toggle { display: flex; gap: 0; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-  .mode-toggle-btn {
+  .mode-toggle, .form-type-toggle { display: flex; gap: 0; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .mode-toggle-btn, .form-type-btn {
     flex: 1; font-family: inherit; font-size: 13px; padding: 9px 8px; cursor: pointer;
     border: none; background: transparent; color: var(--ink-light);
   }
-  .mode-toggle-btn + .mode-toggle-btn { border-left: 1px solid var(--line); }
+  .mode-toggle-btn + .mode-toggle-btn, .form-type-btn + .form-type-btn { border-left: 1px solid var(--line); }
   .mode-toggle-btn.active { background: var(--ink); color: var(--paper-card); }
+  .form-type-btn.active.wine { background: var(--wine); color: var(--paper-card); }
+  .form-type-btn.active.sake { background: var(--sake); color: var(--paper-card); }
+
+  .type-picker { display: flex; border: 1px solid var(--line); border-radius: 20px; overflow: hidden; flex-shrink: 0; }
+  .type-picker-btn { font-family: inherit; font-size: 13px; padding: 9px 14px; border: none; background: transparent; color: var(--ink-light); cursor: pointer; }
+  .type-picker-btn.active.wine { background: var(--wine); color: var(--paper-card); }
+  .type-picker-btn.active.sake { background: var(--sake); color: var(--paper-card); }
+
+  .stars { display: inline-flex; gap: 4px; }
+  .star-btn { background: none; border: none; padding: 0; cursor: pointer; font-size: 26px; line-height: 1; color: var(--line); }
+  .star-btn.filled { color: var(--wine); }
+  .star-btn.filled.sake-star { color: var(--sake); }
+  .stars.readonly .star-btn { cursor: default; font-size: 13px; }
+  .rating-clear { font-size: 11px; color: var(--ink-light); background: none; border: none; cursor: pointer; margin-left: 6px; text-decoration: underline; }
+
+  .tag-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .tag-preset-btn { font-family: inherit; font-size: 12px; padding: 5px 10px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--ink-light); cursor: pointer; }
+  .tag-preset-btn.active.wine { background: var(--wine); color: var(--paper-card); border-color: var(--wine); }
+  .tag-preset-btn.active.sake { background: var(--sake); color: var(--paper-card); border-color: var(--sake); }
+  .tag-custom-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .tag-custom-row input { flex: 1; min-width: 0; }
+  .tag-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 2px 4px 2px 9px; background: var(--paper); }
+  .tag-chip button { background: none; border: none; color: var(--ink-light); cursor: pointer; font-size: 12px; padding: 0 4px; }
 
   .photo-preview-wrap { display: inline-block; max-width: 100%; padding: 4px; background: var(--tape); transform: rotate(-1.5deg); margin: 8px 0 16px; }
   .photo-preview-wrap img { display: block; width: auto; max-width: 100%; max-height: 160px; border-radius: 2px; }
 
-  main { padding: 16px 4px 140px; }
-  @media (min-width: 480px) { main { padding: 16px 8px 140px; } }
-  @media (min-width: 768px) { main { padding: 16px 48px 140px; } }
-  #empty-msg, #loading-msg { font-size: 14px; color: var(--ink-light); padding: 0 16px; }
+  #cook-app main { padding: 16px 4px 140px; }
+  @media (min-width: 480px) { #cook-app main { padding: 16px 8px 140px; } }
+  @media (min-width: 768px) { #cook-app main { padding: 16px 48px 140px; } }
+  #label-app main { padding: 16px 4px 60px; }
+  @media (min-width: 480px) { #label-app main { padding: 16px 8px 60px; } }
+  @media (min-width: 768px) { #label-app main { padding: 16px 48px 60px; } }
+  #empty-msg, #loading-msg, #lb-empty-msg, #lb-loading-msg { font-size: 14px; color: var(--ink-light); padding: 0 16px; }
 
   .holes {
     background-image: radial-gradient(circle, var(--line) 3px, transparent 3px);
@@ -199,14 +246,14 @@
   .grid { display: grid; grid-template-columns: 1fr; gap: 12px; padding-top: 8px; }
   @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; gap: 16px; } }
 
-  .view-toggle { display: flex; gap: 8px; padding: 0 16px 4px; }
-  @media (min-width: 480px) { .view-toggle { padding: 0 24px 4px; } }
-  @media (min-width: 768px) { .view-toggle { padding: 0 48px 4px; } }
-  .view-toggle-btn {
+  .view-toggle, .filter-tabs { display: flex; gap: 8px; padding: 0 16px 4px; }
+  @media (min-width: 480px) { .view-toggle, .filter-tabs { padding: 0 24px 4px; } }
+  @media (min-width: 768px) { .view-toggle, .filter-tabs { padding: 0 48px 4px; } }
+  .view-toggle-btn, .filter-tab-btn {
     font-family: inherit; font-size: 12px; padding: 5px 12px; border-radius: 12px; cursor: pointer;
     border: 1px solid var(--line); background: transparent; color: var(--ink-light);
   }
-  .view-toggle-btn.active { background: var(--ink); color: var(--paper-card); border-color: var(--ink); }
+  .view-toggle-btn.active, .filter-tab-btn.active { background: var(--ink); color: var(--paper-card); border-color: var(--ink); }
 
   .date-group { margin-bottom: 8px; }
   .date-heading {
@@ -217,27 +264,39 @@
 
   .top-actions { padding: 0 16px 4px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
   @media (min-width: 480px) { .top-actions { padding: 0 24px 4px; } }
+  #lb-top-actions { justify-content: flex-start; }
   .detail-add-link {
     font-family: inherit; font-size: 12px; color: var(--ink-light); background: none; border: none;
     cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 6px 4px;
   }
-  #form-anchor { padding: 0 16px; }
-  @media (min-width: 480px) { #form-anchor { padding: 0 24px; } }
+  #form-anchor, #lb-form-anchor { padding: 0 16px; }
+  @media (min-width: 480px) { #form-anchor, #lb-form-anchor { padding: 0 24px; } }
 
   .entry { padding: 12px; position: relative; cursor: pointer; }
   @media (min-width: 480px) { .entry { padding: 16px; } }
   .entry:active { background: #ece7d8; }
   .stamp-row { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .lb-stamp-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
   .stamp {
     transform: rotate(-2deg);
     border: 2px solid var(--stamp); color: var(--stamp); background: var(--paper-card);
     font-size: 11px; padding: 3px 7px; border-radius: 3px; white-space: nowrap; line-height: 1.3;
   }
+  .drag-handle { background: none; border: none; color: var(--ink-light); font-size: 15px; padding: 2px 4px; cursor: grab; touch-action: none; flex-shrink: 0; }
+  .type-tag { transform: rotate(-2deg); border: 2px solid var(--wine); color: var(--wine); background: var(--paper-card); font-size: 11px; padding: 3px 7px; border-radius: 3px; white-space: nowrap; line-height: 1.3; flex-shrink: 0; }
+  .type-tag.sake { border-color: var(--sake); color: var(--sake); }
+  .date-stamp { font-size: 11px; color: var(--ink-light); white-space: nowrap; margin-left: auto; }
   .entry-body { display: flex; gap: 10px; }
   @media (min-width: 480px) { .entry-body { gap: 12px; } }
   .thumb-wrap { flex-shrink: 0; padding: 3px; background: var(--tape); transform: rotate(-2deg); }
   .thumb-wrap img { width: 64px; height: 64px; object-fit: cover; border-radius: 2px; display: block; cursor: zoom-in; }
   @media (min-width: 480px) { .thumb-wrap img { width: 76px; height: 76px; } }
+  .thumb-wrap-dual { display: flex; gap: 3px; transform: rotate(-1.5deg); background: transparent; padding: 0; }
+  .thumb-wrap-dual img { width: 34px; height: 64px; padding: 3px; background: var(--tape); }
+  @media (min-width: 480px) { .thumb-wrap-dual img { width: 40px; height: 76px; } }
+  .thumb-img-back { transform: rotate(2deg); }
+  .entry.dragging { opacity: 0.45; }
+  .entry.drop-target { outline: 2px dashed var(--wine); outline-offset: 3px; }
   .thumb-placeholder {
     width: 64px; height: 64px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
     border: 1px dashed var(--line); color: var(--ink-light); border-radius: 2px; font-size: 20px;
@@ -245,11 +304,15 @@
   @media (min-width: 480px) { .thumb-placeholder { width: 76px; height: 76px; font-size: 22px; } }
   .entry-title { font-size: 15px; margin: 0 0 4px; word-break: break-word; }
   @media (min-width: 480px) { .entry-title { font-size: 16px; } }
-  .entry-comment { font-size: 12px; color: var(--ink-light); margin: 0; line-height: 1.4; word-break: break-word; }
-  @media (min-width: 480px) { .entry-comment { font-size: 13px; } }
-  .entry-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .entry-comment, .entry-memo { font-size: 12px; color: var(--ink-light); margin: 0; line-height: 1.4; word-break: break-word; }
+  @media (min-width: 480px) { .entry-comment, .entry-memo { font-size: 13px; } }
+  .entry-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 6px; }
+  .entry-tag-chip { display: inline-block; font-size: 11px; color: var(--ink-light); border: 1px solid var(--line); border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+  .entry-actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 8px; }
   .del-btn { position: static; background: none; border: none; color: var(--ink-light); opacity: 0.75; cursor: pointer; font-size: 12px; padding: 4px 0; }
   .del-btn:hover { opacity: 1; }
+  .move-btn { background: none; border: none; color: var(--sage); opacity: 0.85; cursor: pointer; font-size: 12px; padding: 4px 0; }
+  .move-btn:hover { opacity: 1; }
   .spin { display: inline-block; animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -264,9 +327,17 @@
 <body>
 
 <header>
-  <p class="eyebrow mono">KITCHEN LOG / ネタ帳</p>
-  <h1 class="serif">料理記録</h1>
+  <p class="eyebrow mono">KITCHEN &amp; CELLAR LOG</p>
+  <h1 class="serif">食と酒の記録</h1>
 </header>
+
+<div class="main-tabs">
+  <button type="button" class="main-tab-btn active" id="main-tab-cook" data-tab="cook">🍳 料理</button>
+  <button type="button" class="main-tab-btn" id="main-tab-label" data-tab="label">🍷🍶 お酒</button>
+</div>
+
+<!-- ============================= 料理タブ ============================= -->
+<div id="cook-app" class="main-tab-panel active">
 
 <div class="top-actions">
   <button class="detail-add-link" id="open-form-btn">＋ 詳しく記録する</button>
@@ -363,6 +434,119 @@
   </div>
 </main>
 
+</div>
+<!-- ============================= /料理タブ ============================= -->
+
+<!-- ============================= お酒タブ ============================= -->
+<div id="label-app" class="main-tab-panel" style="display:none;">
+
+<div class="top-actions" id="lb-top-actions">
+  <div class="type-picker" id="lb-quick-type-picker">
+    <button type="button" class="type-picker-btn active wine" data-type="wine" id="lb-quick-type-wine">🍷 ワイン</button>
+    <button type="button" class="type-picker-btn sake" data-type="sake" id="lb-quick-type-sake">🍶 日本酒</button>
+  </div>
+  <button class="icon-btn icon-btn-photo" id="lb-quick-photo-btn" aria-label="写真を追加" title="写真を追加">📷</button>
+  <button class="icon-btn icon-btn-add" id="lb-paste-photo-btn" aria-label="写真を貼り付け" title="写真を貼り付け">📋</button>
+  <button class="icon-btn icon-btn-add" id="lb-open-form-btn" aria-label="記録を詳しく追加" title="記録を詳しく追加">＋</button>
+  <input type="file" id="lb-quick-photo-input" accept="image/*,.heic,.heif" multiple style="display:none;">
+</div>
+
+<div class="paste-fallback-inline" id="lb-paste-fallback" style="display:none;">
+  <input type="text" id="lb-paste-target-input" class="paste-target-input" placeholder="ここを長押し→「貼り付け」（画像専用）">
+</div>
+<p class="error-text" id="lb-outer-error" style="display:none; margin: 0 16px 8px;"></p>
+<p class="hint" id="lb-quick-add-status" style="display:none; margin: 0 16px 8px;"></p>
+
+<div class="top-actions">
+  <div class="card" id="lb-form-panel">
+    <div class="form-head">
+      <h2 class="serif" style="margin:0; font-size:18px;">新しい記録</h2>
+      <button class="close-btn" id="lb-close-form-btn">✕</button>
+    </div>
+
+    <div class="form-type-toggle" id="lb-form-type-toggle">
+      <button type="button" class="form-type-btn active wine" id="lb-form-type-wine">🍷 ワイン</button>
+      <button type="button" class="form-type-btn sake" id="lb-form-type-sake">🍶 日本酒</button>
+    </div>
+
+    <div class="form-row">
+      <label>記録日</label>
+      <input type="datetime-local" id="lb-input-datetime" class="mono">
+    </div>
+
+    <div class="form-row">
+      <label>銘柄名</label>
+      <input type="text" id="lb-input-name" placeholder="例：〇〇シャルドネ">
+    </div>
+
+    <div class="form-row">
+      <label>写真(表)</label>
+      <div class="photo-row">
+        <div id="lb-photo-preview-wrap" class="photo-preview-wrap compact" style="display:none;">
+          <img id="lb-photo-preview" src="" alt="添付写真(表)">
+        </div>
+        <button class="icon-btn icon-btn-add-photo" id="lb-pick-photo-btn" aria-label="写真を選ぶ" title="写真を選ぶ">📷</button>
+        <input type="file" id="lb-file-input" accept="image/*,.heic,.heif" style="display:none;">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>写真(裏・任意)</label>
+      <div class="photo-row">
+        <div id="lb-photo-back-preview-wrap" class="photo-preview-wrap compact" style="display:none;">
+          <img id="lb-photo-back-preview" src="" alt="添付写真(裏)">
+        </div>
+        <button class="icon-btn icon-btn-add-photo" id="lb-pick-photo-back-btn" aria-label="裏の写真を選ぶ" title="裏の写真を選ぶ">📷</button>
+        <input type="file" id="lb-file-input-back" accept="image/*,.heic,.heif" style="display:none;">
+      </div>
+      <p class="hint">裏表バラバラに撮ってしまった場合は、一覧のカードの「⠿」を掴んでもう一方のカードに重ねると1件にまとめられます。</p>
+    </div>
+
+    <div class="form-row">
+      <label>評価</label>
+      <div style="display:flex; align-items:center;">
+        <div class="stars" id="lb-rating-stars"></div>
+        <button type="button" class="rating-clear" id="lb-rating-clear-btn">クリア</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>タグ</label>
+      <div class="tag-presets" id="lb-tag-presets"></div>
+      <div class="tag-custom-row">
+        <input type="text" id="lb-input-tag-custom" placeholder="自由入力してEnter">
+        <button type="button" class="btn-outline" id="lb-add-tag-btn">追加</button>
+      </div>
+      <div class="tag-chips" id="lb-tag-chips"></div>
+    </div>
+
+    <div class="form-row">
+      <label>一言メモ</label>
+      <textarea id="lb-input-memo" rows="2" placeholder="例：思ったより渋みが強かった。次は3年くらい寝かせたい。"></textarea>
+    </div>
+
+    <p class="error-text" id="lb-form-error" style="display:none;"></p>
+
+    <button class="btn-save" id="lb-save-btn">記録を保存</button>
+  </div>
+</div>
+
+<main>
+  <p id="lb-loading-msg">読み込み中...</p>
+  <p id="lb-empty-msg" style="display:none;">まだ記録がありません。ラベルを撮ってみましょう。</p>
+  <div class="filter-tabs" id="lb-filter-tabs" style="display:none;">
+    <button type="button" class="filter-tab-btn active" data-filter="all" id="lb-filter-all-btn">すべて</button>
+    <button type="button" class="filter-tab-btn" data-filter="wine" id="lb-filter-wine-btn">🍷 ワイン</button>
+    <button type="button" class="filter-tab-btn" data-filter="sake" id="lb-filter-sake-btn">🍶 日本酒</button>
+  </div>
+  <div class="holes" id="lb-list-wrap" style="display:none;">
+    <div id="lb-list"></div>
+  </div>
+</main>
+
+</div>
+<!-- ============================= /お酒タブ ============================= -->
+
 <div id="lightbox">
   <button id="lightbox-close" aria-label="閉じる">✕</button>
   <img id="lightbox-img" src="" alt="拡大写真">
@@ -372,6 +556,34 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ===================== 共通（タブ切り替え・ライトボックス） =====================
+function switchMainTab(tab) {
+  document.getElementById('main-tab-cook').classList.toggle('active', tab === 'cook');
+  document.getElementById('main-tab-label').classList.toggle('active', tab === 'label');
+  document.getElementById('cook-app').style.display = tab === 'cook' ? '' : 'none';
+  document.getElementById('cook-app').classList.toggle('active', tab === 'cook');
+  document.getElementById('label-app').style.display = tab === 'label' ? '' : 'none';
+  document.getElementById('label-app').classList.toggle('active', tab === 'label');
+}
+document.getElementById('main-tab-cook').addEventListener('click', () => switchMainTab('cook'));
+document.getElementById('main-tab-label').addEventListener('click', () => switchMainTab('label'));
+
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+  document.getElementById('lightbox-img').src = '';
+}
+document.getElementById('lightbox').addEventListener('click', closeLightbox);
+document.getElementById('lightbox-close').addEventListener('click', (ev) => { ev.stopPropagation(); closeLightbox(); });
+</script>
+
+<script>
+// ===================== 🍳 料理（recipe-log） =====================
+(function initCookApp(){
+
 const SUPABASE_URL = 'https://edfrjxjdzxutcjeayfac.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_GVtanlT_gDwSEQSsZPC_NQ_nEK-60x2';
 const TABLE = 'recipe-log';
@@ -407,8 +619,6 @@ function esc(s) {
   return d.innerHTML;
 }
 
-// ---- content structuring, packed into the single `comment` field ----
-// 自炊モード: 材料:/作り方: 見出し付きテキスト。 外食・惣菜モード: 店名:/メニュー: 見出し付きテキスト。
 function buildComment(ingredients, stepsText) {
   const parts = [];
   if (ingredients.length) {
@@ -440,7 +650,6 @@ function parseComment(comment) {
     const steps = stepsMatch ? stepsMatch[1].trim() : '';
     return { mode: 'cook', ingredients, steps, shopName: '', menuItem: '' };
   }
-  // 旧形式（構造化前の自由記述）はそのまま「作り方」として扱う
   return { mode: 'cook', ingredients: [], steps: comment, shopName: '', menuItem: '' };
 }
 
@@ -612,7 +821,6 @@ async function processOnePhotoFile(file) {
   return { datetime: dateIso, photo: resized, photoHash: hash };
 }
 
-// 既存レコードのphoto_hashを全件取得（null以外）してSetにする
 async function fetchExistingPhotoHashes() {
   const { data, error } = await supabaseClient.from(TABLE).select('photo_hash').not('photo_hash', 'is', null);
   if (error) throw error;
@@ -631,7 +839,6 @@ async function handleQuickAddPhotos(fileList) {
   try {
     existingHashes = await fetchExistingPhotoHashes();
   } catch (e) {
-    // 照合に失敗した場合は重複チェックをスキップして続行（取り込み自体は止めない）
     existingHashes = new Set();
   }
   const batchHashes = new Set();
@@ -666,10 +873,6 @@ async function handleQuickAddPhotos(fileList) {
 }
 
 // ---- クリップボードからの貼り付け ----
-// iOS Safari/PWAはnavigator.clipboard.read()が一度失敗してもすぐ再試行すると取れることがあるため、
-// 短い間隔を空けて数回リトライする。それでも取れない場合は、実際に長押しして
-// OSの「貼り付け」メニューを出せる編集可能な入力欄（#paste-target-input）を表示して誘導する
-// （iOSは「何もない画面」を長押ししても貼り付けメニューが出ないため、ボタンだけでは完結しない）
 async function readClipboardImageFiles(maxAttempts = 3, delayMs = 350) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
@@ -698,7 +901,7 @@ function showPasteFallbackInput() {
   wrap.style.display = 'block';
   input.focus();
   input.classList.remove('paste-target-flash');
-  void input.offsetWidth; // アニメーション再トリガー用の強制リフロー
+  void input.offsetWidth;
   input.classList.add('paste-target-flash');
 }
 
@@ -740,7 +943,6 @@ async function handleFileSelected(file) {
   try {
     let dataUrl;
 
-    // 写真の日付を推定して日付欄に反映(撮影日時のEXIFがなければファイルの更新日時)
     getPhotoDate(file).then(iso => {
       document.getElementById('input-datetime').value = isoToInput(iso);
     });
@@ -772,8 +974,7 @@ async function handleFileSelected(file) {
   }
 }
 
-// ---- storage (Supabase: PC・スマホ間で同じデータを共有) ----
-// 一覧は軽い列だけ取得（写真はbase64で巨大なので別途1件ずつ読む）
+// ---- storage ----
 async function dbGetAll() {
   const { data, error } = await supabaseClient.from(TABLE).select('id,datetime,title,comment');
   if (error) throw error;
@@ -810,7 +1011,7 @@ async function dbDelete(id) {
   return true;
 }
 
-// ---- realtime sync (他端末での追加・編集・削除を反映) ----
+// ---- realtime sync ----
 function upsertLocalEntry(row) {
   const idx = entries.findIndex(e => e.id === row.id);
   if (idx >= 0) entries[idx] = { ...entries[idx], ...row }; else entries.push(row);
@@ -856,7 +1057,6 @@ async function loadEntries() {
   if (ok) loadPhotosInBackground();
 }
 
-// 写真を新しい順に1件ずつ読み込み、届いた分からカードに反映
 async function loadPhotosInBackground() {
   for (const e of entries.slice()) {
     if (e.photo !== undefined) continue;
@@ -869,13 +1069,13 @@ async function loadPhotosInBackground() {
         cur.photo_hash = row ? (row.photo_hash || null) : null;
       }
       applyPhotoToCard(cur);
-    } catch (err) { /* 失敗した分は未取得のまま（編集時に再取得） */ }
+    } catch (err) { /* noop */ }
   }
 }
 
 function applyPhotoToCard(entry) {
   if (!entry.photo) return;
-  document.querySelectorAll(`.entry[data-id="${CSS.escape(entry.id)}"]`).forEach(card => {
+  document.querySelectorAll(`#cook-app .entry[data-id="${CSS.escape(entry.id)}"]`).forEach(card => {
     const ph = card.querySelector('.thumb-placeholder');
     if (!ph) return;
     const wrap = document.createElement('div');
@@ -904,6 +1104,7 @@ function entryCardHtml(e) {
         </div>
       </div>
       <div class="entry-actions">
+        <button class="move-btn" data-id="${esc(e.id)}">🍷 お酒として記録し直す</button>
         <button class="del-btn" data-id="${esc(e.id)}">🗑 削除</button>
       </div>
     </article>
@@ -981,15 +1182,12 @@ function renderList() {
       handleDelete(btn.getAttribute('data-id'));
     });
   });
-}
-
-function openLightbox(src) {
-  document.getElementById('lightbox-img').src = src;
-  document.getElementById('lightbox').style.display = 'flex';
-}
-function closeLightbox() {
-  document.getElementById('lightbox').style.display = 'none';
-  document.getElementById('lightbox-img').src = '';
+  list.querySelectorAll('.move-btn').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      handleMoveToLabel(btn.getAttribute('data-id'));
+    });
+  });
 }
 
 async function handleDelete(id) {
@@ -999,6 +1197,34 @@ async function handleDelete(id) {
     renderList();
   } catch (e) {
     setOuterError("削除に失敗しました。");
+  }
+}
+
+// ---- お酒への移動 ----
+async function handleMoveToLabel(id) {
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  if (entry.photo === undefined) {
+    try {
+      const row = await withRetry(() => dbGetPhoto(id), 2);
+      entry.photo = row ? (row.photo || null) : null;
+    } catch (err) {
+      setOuterError("写真の読み込みに失敗したため移動できませんでした。少し待ってからもう一度お試しください。");
+      return;
+    }
+  }
+  const ok = window.confirm("この記録をお酒の記録に移動しますか？（料理側からは削除されます）");
+  if (!ok) return;
+  try {
+    await dbDelete(id);
+    entries = entries.filter(e => e.id !== id);
+    renderList();
+    if (window.LabelApp) {
+      await window.LabelApp.addFromMove({ id: entry.id, datetime: entry.datetime, photo: entry.photo || null });
+    }
+    switchMainTab('label');
+  } catch (e) {
+    setOuterError("お酒への移動に失敗しました。もう一度お試しください。");
   }
 }
 
@@ -1033,7 +1259,6 @@ function renderDaySiblingsStrip(entry) {
 async function handleEdit(id) {
   const entry = entries.find(e => e.id === id);
   if (!entry) return;
-  // 写真が未取得のまま保存すると写真が消えるため、先に取得する
   if (entry.photo === undefined) {
     try {
       const row = await withRetry(() => dbGetPhoto(id), 2);
@@ -1105,7 +1330,6 @@ async function handleSave() {
   saveBtn.disabled = true; const origText = saveBtn.textContent; saveBtn.textContent = editingId ? '更新中...' : '保存中...';
   setFormError("");
 
-  // 新規追加時のみ：同じ写真が既にある場合は警告する（編集時は自分自身と一致するのが普通なので対象外）
   if (!editingId && currentPhotoHash) {
     try {
       const existingHashes = await fetchExistingPhotoHashes();
@@ -1116,7 +1340,7 @@ async function handleSave() {
           return;
         }
       }
-    } catch (e) { /* 確認に失敗しても保存自体は続行 */ }
+    } catch (e) { /* noop */ }
   }
 
   const id = editingId || `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
@@ -1168,6 +1392,24 @@ function resetForm() {
   setFormError("");
 }
 
+// ---- 他タブからの移動受け入れ ----
+async function addFromMove(moved) {
+  const entry = {
+    id: moved.id || `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    datetime: moved.datetime || new Date().toISOString(),
+    title: "",
+    comment: "",
+    photo: moved.photo || null,
+    photo_hash: null
+  };
+  await dbPut(entry);
+  entries.unshift(entry);
+  entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+  renderList();
+  await handleEdit(entry.id);
+}
+window.CookApp = { addFromMove };
+
 // ---- wire up ----
 document.getElementById('input-datetime').value = nowForInput();
 renderIngredientRows(['']);
@@ -1190,9 +1432,6 @@ document.getElementById('quick-photo-input').addEventListener('change', (e) => {
   e.target.value = "";
 });
 document.getElementById('paste-photo-btn').addEventListener('click', handlePasteButton);
-// スマホでは編集可能な要素を長押ししないと「貼り付け」がOSメニューに出ないため、
-// #paste-target-input を長押しの対象にする。実際の画像抽出は下のdocumentレベルの
-// リスナーがバブリングで処理し、ここでは入力欄のテキストを消して隠すだけ
 document.getElementById('paste-target-input').addEventListener('paste', () => {
   setTimeout(() => {
     const input = document.getElementById('paste-target-input');
@@ -1200,8 +1439,8 @@ document.getElementById('paste-target-input').addEventListener('paste', () => {
     document.getElementById('paste-fallback').style.display = 'none';
   }, 0);
 });
-// ページ上で実際にペースト操作をした場合も拾う（フォームが開いていれば写真欄に、閉じていれば「写真だけ追加」と同じ扱いに）
 document.addEventListener('paste', (ev) => {
+  if (document.getElementById('cook-app').style.display === 'none') return;
   const files = extractImageFilesFromClipboard(ev.clipboardData);
   if (!files.length) return;
   ev.preventDefault();
@@ -1222,12 +1461,799 @@ document.getElementById('photo-preview').addEventListener('click', (ev) => {
   ev.stopPropagation();
   openLightbox(document.getElementById('photo-preview').src);
 });
-document.getElementById('lightbox').addEventListener('click', closeLightbox);
-document.getElementById('lightbox-close').addEventListener('click', (ev) => { ev.stopPropagation(); closeLightbox(); });
 
 document.getElementById('retry-btn').addEventListener('click', loadEntries);
 loadEntries();
 subscribeRealtime();
+
+})();
+</script>
+
+<script>
+// ===================== 🍷🍶 お酒（label-log / ラベル帳） =====================
+(function initLabelApp(){
+
+const SUPABASE_URL = 'https://edfrjxjdzxutcjeayfac.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_GVtanlT_gDwSEQSsZPC_NQ_nEK-60x2';
+const TABLE = 'label-log';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const WEEKDAYS = ["日","月","火","水","木","金","土"];
+const WINE_TAGS = ['辛口','甘口','フルーティ','軽やか','濃厚','渋みしっかり','酸味しっかり','熟成向き'];
+const SAKE_TAGS = ['辛口','甘口','フルーティ','キレがある','まろやか','芳醇','すっきり','燗がおすすめ'];
+
+let entries = [];
+let currentPhotoDataUrl = null;
+let currentPhotoBackDataUrl = null;
+let heicLoadPromise = null;
+let editingId = null;
+let quickType = 'wine';
+let formType = 'wine';
+let currentRating = 0;
+let selectedTags = [];
+let filterMode = 'all';
+
+function isoToInput(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return nowForInput();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0,16);
+}
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? "" : s;
+  return d.innerHTML;
+}
+function nowForInput() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0,16);
+}
+function formatDateTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const hh = String(d.getHours()).padStart(2,"0");
+  const mm = String(d.getMinutes()).padStart(2,"0");
+  return `${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]}) ${hh}:${mm}`;
+}
+function setFormError(msg) {
+  const el = document.getElementById('lb-form-error');
+  if (msg) { el.textContent = msg; el.style.display = 'block'; }
+  else { el.style.display = 'none'; }
+}
+function setOuterError(msg) {
+  const el = document.getElementById('lb-outer-error');
+  if (msg) { el.textContent = msg; el.style.display = 'block'; }
+  else { el.style.display = 'none'; }
+}
+function typeLabel(t) { return t === 'sake' ? '🍶 日本酒' : '🍷 ワイン'; }
+
+function setQuickType(t) {
+  quickType = t;
+  document.getElementById('lb-quick-type-wine').classList.toggle('active', t === 'wine');
+  document.getElementById('lb-quick-type-sake').classList.toggle('active', t === 'sake');
+}
+function setFormType(t) {
+  formType = t;
+  document.getElementById('lb-form-type-wine').classList.toggle('active', t === 'wine');
+  document.getElementById('lb-form-type-sake').classList.toggle('active', t === 'sake');
+  renderTagPresets();
+  renderStarsInto(document.getElementById('lb-rating-stars'), currentRating, true);
+}
+
+function renderStarsInto(container, value, editable) {
+  const sakeCls = formType === 'sake' ? ' sake-star' : '';
+  container.innerHTML = [1,2,3,4,5].map(n => {
+    const filled = n <= value ? ' filled' + sakeCls : '';
+    return editable
+      ? `<button type="button" class="star-btn${filled}" data-n="${n}">${n <= value ? '★' : '☆'}</button>`
+      : `<span class="star-btn${filled}">${n <= value ? '★' : '☆'}</span>`;
+  }).join('');
+  if (editable) {
+    container.querySelectorAll('.star-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentRating = Number(btn.getAttribute('data-n'));
+        renderStarsInto(container, currentRating, true);
+      });
+    });
+  }
+}
+
+function renderTagPresets() {
+  const presets = formType === 'sake' ? SAKE_TAGS : WINE_TAGS;
+  const wrap = document.getElementById('lb-tag-presets');
+  wrap.innerHTML = presets.map(t => {
+    const active = selectedTags.includes(t) ? ` active ${formType}` : '';
+    return `<button type="button" class="tag-preset-btn${active}" data-tag="${esc(t)}">${esc(t)}</button>`;
+  }).join('');
+  wrap.querySelectorAll('.tag-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleTag(btn.getAttribute('data-tag')));
+  });
+}
+function renderTagChips() {
+  const wrap = document.getElementById('lb-tag-chips');
+  wrap.innerHTML = selectedTags.map(t => `
+    <span class="tag-chip">${esc(t)}<button type="button" data-tag="${esc(t)}">✕</button></span>
+  `).join('');
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => toggleTag(btn.getAttribute('data-tag'), true));
+  });
+}
+function toggleTag(tag, forceRemove) {
+  if (selectedTags.includes(tag) || forceRemove) {
+    selectedTags = selectedTags.filter(t => t !== tag);
+  } else {
+    selectedTags.push(tag);
+  }
+  renderTagPresets();
+  renderTagChips();
+}
+function addCustomTag() {
+  const input = document.getElementById('lb-input-tag-custom');
+  const val = input.value.trim();
+  if (!val) return;
+  if (!selectedTags.includes(val)) selectedTags.push(val);
+  input.value = '';
+  renderTagPresets();
+  renderTagChips();
+}
+
+// ---- HEIC / EXIF / リサイズ ----
+function ensureHeic2any() {
+  if (window.heic2any) return Promise.resolve(window.heic2any);
+  if (heicLoadPromise) return heicLoadPromise;
+  heicLoadPromise = new Promise((resolve, reject) => {
+    const check = () => { if (window.heic2any) resolve(window.heic2any); else setTimeout(check, 100); };
+    check();
+    setTimeout(() => { if (!window.heic2any) reject(new Error("heic2any load timeout")); }, 8000);
+  });
+  return heicLoadPromise;
+}
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+function resizeDataUrl(dataUrl, maxWidth = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+function exifDateToIso(dt) {
+  const m = String(dt).match(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+function getPhotoDate(file) {
+  return new Promise((resolve) => {
+    const fallback = () => resolve(file.lastModified ? new Date(file.lastModified).toISOString() : new Date().toISOString());
+    const isHeic = /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name || "");
+    if (typeof EXIF === 'undefined' || isHeic) { fallback(); return; }
+    try {
+      EXIF.getData(file, function () {
+        const dt = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
+        const iso = dt ? exifDateToIso(dt) : null;
+        if (iso) resolve(iso); else fallback();
+      });
+    } catch (e) { fallback(); }
+  });
+}
+async function processOnePhotoFile(file) {
+  const isHeic = /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name || "");
+  const dateIso = await getPhotoDate(file);
+  let dataUrl;
+  if (isHeic) {
+    const heic2any = await ensureHeic2any();
+    const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.8 });
+    const blob = Array.isArray(result) ? result[0] : result;
+    dataUrl = await fileToDataUrl(blob);
+  } else {
+    dataUrl = await fileToDataUrl(file);
+  }
+  const resized = await resizeDataUrl(dataUrl);
+  return { datetime: dateIso, photo: resized };
+}
+
+async function handleQuickAddPhotos(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  setOuterError("");
+  const statusEl = document.getElementById('lb-quick-add-status');
+  statusEl.style.display = 'block';
+  let done = 0, failed = 0;
+  for (const file of files) {
+    statusEl.textContent = `写真を取り込み中 (${done + 1}/${files.length})...`;
+    try {
+      const { datetime, photo } = await processOnePhotoFile(file);
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+      const entry = { id, datetime, type: quickType, name: "", rating: 0, tags: "", memo: "", photo, photo_back: "" };
+      await dbPut(entry);
+      entries.push(entry);
+    } catch (e) {
+      failed++;
+    }
+    done++;
+  }
+  entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+  renderList();
+  statusEl.style.display = 'none';
+  statusEl.textContent = '';
+  if (failed > 0) {
+    setOuterError(`${failed}件の写真は取り込めませんでした（HEIC変換の失敗など）。`);
+  }
+}
+
+// ---- クリップボードからの貼り付け（recipe-logと同じ: リトライ＋長押し用の入力欄フォールバック） ----
+async function readClipboardImageFiles(maxAttempts = 3, delayMs = 350) {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const items = await navigator.clipboard.read();
+      const files = [];
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type);
+            files.push(new File([blob], `pasted-${Date.now()}.${type.split('/')[1] || 'jpg'}`, { type }));
+          }
+        }
+      }
+      if (files.length) return files;
+    } catch (e) {
+      if (i === maxAttempts - 1) throw e;
+    }
+    if (i < maxAttempts - 1) await new Promise(r => setTimeout(r, delayMs));
+  }
+  return [];
+}
+function showPasteFallbackInput() {
+  const wrap = document.getElementById('lb-paste-fallback');
+  const input = document.getElementById('lb-paste-target-input');
+  wrap.style.display = 'block';
+  input.focus();
+  input.classList.remove('paste-target-flash');
+  void input.offsetWidth;
+  input.classList.add('paste-target-flash');
+}
+async function handlePasteButton() {
+  if (!navigator.clipboard || !navigator.clipboard.read) {
+    setOuterError("この端末・ブラウザはボタンでの貼り付けに対応していません。写真アプリでコピー後、下に出る欄を長押しして「貼り付け」を選んでください。");
+    showPasteFallbackInput();
+    return;
+  }
+  try {
+    const files = await readClipboardImageFiles();
+    if (!files.length) {
+      setOuterError("クリップボードに写真が見つかりませんでした。写真アプリで画像をコピーしてから、下に出る欄を長押しして「貼り付け」を選んでください。");
+      showPasteFallbackInput();
+      return;
+    }
+    handleQuickAddPhotos(files);
+  } catch (e) {
+    setOuterError("クリップボードを読み取れませんでした。写真アプリで画像をコピーしてから、下に出る欄を長押しして「貼り付け」を選んでください。");
+    showPasteFallbackInput();
+  }
+}
+function extractImageFilesFromClipboard(clipboardData) {
+  if (!clipboardData || !clipboardData.items) return [];
+  const files = [];
+  for (const item of clipboardData.items) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  return files;
+}
+
+async function handleFileSelected(file, slot = 'front') {
+  setFormError("");
+  const isHeic = /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name || "");
+  const previewImgId = slot === 'back' ? 'lb-photo-back-preview' : 'lb-photo-preview';
+  const previewWrapId = slot === 'back' ? 'lb-photo-back-preview-wrap' : 'lb-photo-preview-wrap';
+  try {
+    let dataUrl;
+    if (slot === 'front') {
+      getPhotoDate(file).then(iso => {
+        document.getElementById('lb-input-datetime').value = isoToInput(iso);
+      });
+    }
+    if (isHeic) {
+      setFormError("HEIC画像を変換しています...");
+      const heic2any = await ensureHeic2any();
+      const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.8 });
+      const blob = Array.isArray(result) ? result[0] : result;
+      dataUrl = await fileToDataUrl(blob);
+      setFormError("");
+    } else {
+      dataUrl = await fileToDataUrl(file);
+    }
+    const resized = await resizeDataUrl(dataUrl);
+    if (slot === 'back') { currentPhotoBackDataUrl = resized; } else { currentPhotoDataUrl = resized; }
+    document.getElementById(previewImgId).src = resized;
+    document.getElementById(previewWrapId).style.display = 'inline-block';
+  } catch (err) {
+    if (slot === 'back') { currentPhotoBackDataUrl = null; } else { currentPhotoDataUrl = null; }
+    document.getElementById(previewWrapId).style.display = 'none';
+    if (isHeic) {
+      setFormError("HEIC画像の変換に失敗しました。iPhoneの「設定 > カメラ > フォーマット」を「互換性優先」にするか、JPEG/PNGとして書き出してから選び直してください。");
+    } else {
+      setFormError(`画像の読み込みに失敗しました（${file.type || "unknown"} / ${(file.size/1024).toFixed(0)}KB）。別の写真でお試しください。`);
+    }
+  }
+}
+
+// ---- storage ----
+async function dbGetAll() {
+  const { data, error } = await supabaseClient.from(TABLE).select('*');
+  if (error) throw error;
+  return data || [];
+}
+async function dbPut(entry) {
+  const { error } = await supabaseClient.from(TABLE).upsert(entry);
+  if (error) throw error;
+  return true;
+}
+async function dbDelete(id) {
+  const { error } = await supabaseClient.from(TABLE).delete().eq('id', id);
+  if (error) throw error;
+  return true;
+}
+
+// ---- realtime sync ----
+function upsertLocalEntry(row) {
+  const idx = entries.findIndex(e => e.id === row.id);
+  if (idx >= 0) entries[idx] = row; else entries.push(row);
+  entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+}
+function subscribeRealtime() {
+  supabaseClient
+    .channel('label-log-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, (payload) => {
+      if (payload.eventType === 'DELETE') {
+        const id = payload.old && payload.old.id;
+        if (id == null) return;
+        entries = entries.filter(e => e.id !== id);
+      } else {
+        upsertLocalEntry(payload.new);
+      }
+      renderList();
+    })
+    .subscribe();
+}
+async function loadEntries() {
+  try {
+    const items = await dbGetAll();
+    items.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+    entries = items;
+  } catch (e) {
+    setOuterError("記録の読み込みに失敗しました。");
+  } finally {
+    document.getElementById('lb-loading-msg').style.display = 'none';
+    renderList();
+  }
+}
+
+// ---- 一覧表示 ----
+function tagsToArray(tags) {
+  return (tags || '').split(',').map(t => t.trim()).filter(Boolean);
+}
+function entryCardHtml(e) {
+  const tagArr = tagsToArray(e.tags);
+  let thumbHtml;
+  if (e.photo && e.photo_back) {
+    thumbHtml = `<div class="thumb-wrap thumb-wrap-dual">
+      <img class="thumb-img" src="${e.photo}" alt="${esc(e.name)}(表)">
+      <img class="thumb-img thumb-img-back" src="${e.photo_back}" alt="${esc(e.name)}(裏)">
+    </div>`;
+  } else if (e.photo) {
+    thumbHtml = `<div class="thumb-wrap"><img class="thumb-img" src="${e.photo}" alt="${esc(e.name)}"></div>`;
+  } else {
+    thumbHtml = `<div class="thumb-placeholder">${e.type === 'sake' ? '🍶' : '🍷'}</div>`;
+  }
+  return `
+    <article class="card entry" data-id="${esc(e.id)}">
+      <div class="lb-stamp-row">
+        <button type="button" class="drag-handle" data-id="${esc(e.id)}" title="掴んで別のカードに重ねると1件にまとめられます" aria-label="移動して合体">⠿</button>
+        <span class="type-tag mono${e.type === 'sake' ? ' sake' : ''}">${esc(typeLabel(e.type))}</span>
+        <span class="date-stamp mono">${esc(formatDateTime(e.datetime))}</span>
+      </div>
+      <div class="entry-body">
+        ${thumbHtml}
+        <div style="min-width:0; flex:1;">
+          <h3 class="serif entry-title"${e.name ? '' : ' style="color:var(--ink-light); font-style:italic;"'}>${e.name ? esc(e.name) : "(銘柄未入力・タップして編集)"}</h3>
+          <div class="rating-slot"></div>
+          ${tagArr.length ? `<div class="entry-tags">${tagArr.map(t => `<span class="entry-tag-chip">${esc(t)}</span>`).join('')}</div>` : ''}
+          ${e.memo ? `<p class="entry-memo">${esc(e.memo)}</p>` : ''}
+        </div>
+      </div>
+      <div class="entry-actions">
+        <button class="move-btn" data-id="${esc(e.id)}">🍳 料理として記録し直す</button>
+        <button class="del-btn" data-id="${esc(e.id)}">🗑 削除</button>
+      </div>
+    </article>
+  `;
+}
+function getFilteredEntries() {
+  if (filterMode === 'all') return entries;
+  return entries.filter(e => e.type === filterMode);
+}
+function renderList() {
+  const listWrap = document.getElementById('lb-list-wrap');
+  const emptyMsg = document.getElementById('lb-empty-msg');
+  const tabs = document.getElementById('lb-filter-tabs');
+  const list = document.getElementById('lb-list');
+
+  if (entries.length === 0) {
+    listWrap.style.display = 'none';
+    emptyMsg.style.display = 'block';
+    tabs.style.display = 'none';
+    return;
+  }
+  emptyMsg.style.display = 'none';
+  tabs.style.display = 'flex';
+
+  const filtered = getFilteredEntries();
+  if (filtered.length === 0) {
+    listWrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  listWrap.style.display = 'block';
+  list.innerHTML = `<div class="grid">${filtered.map(entryCardHtml).join("")}</div>`;
+
+  list.querySelectorAll('.entry').forEach((el, i) => {
+    const entry = filtered[i];
+    const slot = el.querySelector('.rating-slot');
+    if (slot && entry.rating > 0) {
+      const s = document.createElement('div');
+      s.className = 'stars readonly';
+      renderStarsInto(s, entry.rating, false);
+      slot.replaceWith(s);
+    } else if (slot) {
+      slot.remove();
+    }
+    el.addEventListener('click', () => handleEdit(el.getAttribute('data-id')));
+  });
+  list.querySelectorAll('.thumb-img').forEach(img => {
+    img.addEventListener('click', (ev) => { ev.stopPropagation(); openLightbox(img.src); });
+  });
+  list.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', (ev) => { ev.stopPropagation(); handleDelete(btn.getAttribute('data-id')); });
+  });
+  list.querySelectorAll('.move-btn').forEach(btn => {
+    btn.addEventListener('click', (ev) => { ev.stopPropagation(); handleMoveToCook(btn.getAttribute('data-id')); });
+  });
+  list.querySelectorAll('.drag-handle').forEach(handle => {
+    handle.addEventListener('pointerdown', onDragStart);
+    handle.addEventListener('click', (e) => e.stopPropagation());
+  });
+}
+
+// ---- 掴んで移動して合体 ----
+let dragState = null;
+function onDragStart(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const handle = e.currentTarget;
+  const card = handle.closest('.entry');
+  if (!card) return;
+  dragState = { sourceId: card.getAttribute('data-id'), targetId: null };
+  card.classList.add('dragging');
+  try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+  handle.addEventListener('pointermove', onDragMove);
+  handle.addEventListener('pointerup', onDragEnd);
+  handle.addEventListener('pointercancel', onDragEnd);
+}
+function onDragMove(e) {
+  if (!dragState) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const targetCard = el && el.closest('.entry');
+  document.querySelectorAll('#label-app .entry.drop-target').forEach(c => c.classList.remove('drop-target'));
+  if (targetCard && targetCard.getAttribute('data-id') !== dragState.sourceId) {
+    targetCard.classList.add('drop-target');
+    dragState.targetId = targetCard.getAttribute('data-id');
+  } else {
+    dragState.targetId = null;
+  }
+}
+function onDragEnd(e) {
+  const handle = e.currentTarget;
+  handle.removeEventListener('pointermove', onDragMove);
+  handle.removeEventListener('pointerup', onDragEnd);
+  handle.removeEventListener('pointercancel', onDragEnd);
+  document.querySelectorAll('#label-app .entry.dragging').forEach(c => c.classList.remove('dragging'));
+  document.querySelectorAll('#label-app .entry.drop-target').forEach(c => c.classList.remove('drop-target'));
+  const state = dragState;
+  dragState = null;
+  if (state && state.targetId) {
+    handleMergeConfirm(state.sourceId, state.targetId);
+  }
+}
+async function handleMergeConfirm(sourceId, targetId) {
+  const source = entries.find(x => x.id === sourceId);
+  const target = entries.find(x => x.id === targetId);
+  if (!source || !target) return;
+  const ok = window.confirm('この2件を裏表として1つにまとめますか？(片方の記録は削除されます)');
+  if (!ok) return;
+  await mergeEntries(source, target);
+}
+async function mergeEntries(source, target) {
+  const merged = { ...target };
+  merged.name = target.name || source.name || '';
+  merged.memo = target.memo || source.memo || '';
+  merged.rating = target.rating || source.rating || 0;
+  merged.tags = Array.from(new Set([...tagsToArray(target.tags), ...tagsToArray(source.tags)])).join(',');
+  if (!merged.photo && source.photo) {
+    merged.photo = source.photo;
+  } else if (!merged.photo_back && source.photo) {
+    merged.photo_back = source.photo;
+  } else if (source.photo_back && !merged.photo_back) {
+    merged.photo_back = source.photo_back;
+  }
+  try {
+    await dbPut(merged);
+    await dbDelete(source.id);
+    entries = entries.filter(x => x.id !== source.id).map(x => x.id === merged.id ? merged : x);
+    entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+    renderList();
+  } catch (e) {
+    setOuterError('まとめる処理に失敗しました。もう一度お試しください。');
+  }
+}
+async function handleDelete(id) {
+  try {
+    await dbDelete(id);
+    entries = entries.filter(e => e.id !== id);
+    renderList();
+  } catch (e) {
+    setOuterError("削除に失敗しました。");
+  }
+}
+
+// ---- 料理への移動 ----
+async function handleMoveToCook(id) {
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  const ok = window.confirm("この記録を料理の記録に移動しますか？（お酒側からは削除されます）");
+  if (!ok) return;
+  try {
+    await dbDelete(id);
+    entries = entries.filter(e => e.id !== id);
+    renderList();
+    if (window.CookApp) {
+      await window.CookApp.addFromMove({ id: entry.id, datetime: entry.datetime, photo: entry.photo || null });
+    }
+    switchMainTab('cook');
+  } catch (e) {
+    setOuterError("料理への移動に失敗しました。もう一度お試しください。");
+  }
+}
+
+// ---- 編集・保存 ----
+function handleEdit(id) {
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  editingId = id;
+  setFormType(entry.type || 'wine');
+  document.getElementById('lb-input-datetime').value = isoToInput(entry.datetime);
+  document.getElementById('lb-input-name').value = entry.name || "";
+  document.getElementById('lb-input-memo').value = entry.memo || "";
+  currentRating = entry.rating || 0;
+  renderStarsInto(document.getElementById('lb-rating-stars'), currentRating, true);
+  selectedTags = tagsToArray(entry.tags);
+  renderTagPresets();
+  renderTagChips();
+  currentPhotoDataUrl = entry.photo || null;
+  if (entry.photo) {
+    document.getElementById('lb-photo-preview').src = entry.photo;
+    document.getElementById('lb-photo-preview-wrap').style.display = 'inline-block';
+  } else {
+    document.getElementById('lb-photo-preview-wrap').style.display = 'none';
+  }
+  currentPhotoBackDataUrl = entry.photo_back || null;
+  if (entry.photo_back) {
+    document.getElementById('lb-photo-back-preview').src = entry.photo_back;
+    document.getElementById('lb-photo-back-preview-wrap').style.display = 'inline-block';
+  } else {
+    document.getElementById('lb-photo-back-preview-wrap').style.display = 'none';
+  }
+  document.querySelector('#lb-form-panel .form-head h2').textContent = '記録を編集';
+  document.getElementById('lb-save-btn').textContent = '更新する';
+  document.getElementById('lb-form-panel').style.display = 'block';
+  document.getElementById('lb-open-form-btn').style.display = 'none';
+  setFormError("");
+  document.getElementById('lb-form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function handleSave() {
+  const name = document.getElementById('lb-input-name').value.trim();
+  const memo = document.getElementById('lb-input-memo').value.trim();
+  if (!name && !memo && !currentPhotoDataUrl) {
+    setFormError("銘柄名・メモ・写真のいずれかを入力してください。");
+    return;
+  }
+  const datetime = document.getElementById('lb-input-datetime').value;
+  const saveBtn = document.getElementById('lb-save-btn');
+  saveBtn.disabled = true; const origText = saveBtn.textContent; saveBtn.textContent = editingId ? '更新中...' : '保存中...';
+  setFormError("");
+  const id = editingId || `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  const entry = {
+    id,
+    datetime: new Date(datetime).toISOString(),
+    type: formType,
+    name,
+    rating: currentRating,
+    tags: selectedTags.join(','),
+    memo,
+    photo: currentPhotoDataUrl,
+    photo_back: currentPhotoBackDataUrl
+  };
+  try {
+    const result = await dbPut(entry);
+    if (!result) throw new Error("save failed");
+    if (editingId) {
+      entries = entries.map(e => e.id === id ? entry : e);
+    } else {
+      entries.unshift(entry);
+    }
+    entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+    renderList();
+    resetForm();
+  } catch (e) {
+    setFormError(editingId ? "更新に失敗しました。もう一度お試しください。" : "保存に失敗しました。もう一度お試しください。");
+  } finally {
+    saveBtn.disabled = false; saveBtn.textContent = origText;
+  }
+}
+
+function resetForm() {
+  editingId = null;
+  setFormType(quickType);
+  document.getElementById('lb-input-datetime').value = nowForInput();
+  document.getElementById('lb-input-name').value = "";
+  document.getElementById('lb-input-memo').value = "";
+  document.getElementById('lb-input-tag-custom').value = "";
+  currentRating = 0;
+  renderStarsInto(document.getElementById('lb-rating-stars'), 0, true);
+  selectedTags = [];
+  renderTagPresets();
+  renderTagChips();
+  currentPhotoDataUrl = null;
+  document.getElementById('lb-photo-preview-wrap').style.display = 'none';
+  document.getElementById('lb-file-input').value = "";
+  currentPhotoBackDataUrl = null;
+  document.getElementById('lb-photo-back-preview-wrap').style.display = 'none';
+  document.getElementById('lb-file-input-back').value = "";
+  document.getElementById('lb-form-panel').style.display = 'none';
+  document.getElementById('lb-open-form-btn').style.display = 'inline-flex';
+  document.querySelector('#lb-form-panel .form-head h2').textContent = '新しい記録';
+  document.getElementById('lb-save-btn').textContent = '記録を保存';
+  setFormError("");
+}
+
+// ---- 他タブからの移動受け入れ ----
+async function addFromMove(moved) {
+  const entry = {
+    id: moved.id || `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    datetime: moved.datetime || new Date().toISOString(),
+    type: 'wine',
+    name: "",
+    rating: 0,
+    tags: "",
+    memo: "",
+    photo: moved.photo || null,
+    photo_back: ""
+  };
+  await dbPut(entry);
+  entries.unshift(entry);
+  entries.sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+  renderList();
+  handleEdit(entry.id);
+}
+window.LabelApp = { addFromMove };
+
+// ---- wire up ----
+document.getElementById('lb-input-datetime').value = nowForInput();
+renderStarsInto(document.getElementById('lb-rating-stars'), 0, true);
+renderTagPresets();
+renderTagChips();
+
+document.getElementById('lb-quick-type-wine').addEventListener('click', () => setQuickType('wine'));
+document.getElementById('lb-quick-type-sake').addEventListener('click', () => setQuickType('sake'));
+document.getElementById('lb-form-type-wine').addEventListener('click', () => setFormType('wine'));
+document.getElementById('lb-form-type-sake').addEventListener('click', () => setFormType('sake'));
+
+document.getElementById('lb-open-form-btn').addEventListener('click', () => {
+  document.getElementById('lb-form-panel').style.display = 'block';
+  document.getElementById('lb-open-form-btn').style.display = 'none';
+});
+document.getElementById('lb-close-form-btn').addEventListener('click', resetForm);
+document.getElementById('lb-rating-clear-btn').addEventListener('click', () => {
+  currentRating = 0;
+  renderStarsInto(document.getElementById('lb-rating-stars'), 0, true);
+});
+document.getElementById('lb-add-tag-btn').addEventListener('click', addCustomTag);
+document.getElementById('lb-input-tag-custom').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); addCustomTag(); }
+});
+
+document.getElementById('lb-quick-photo-btn').addEventListener('click', () => document.getElementById('lb-quick-photo-input').click());
+document.getElementById('lb-quick-photo-input').addEventListener('change', (e) => {
+  const files = e.target.files;
+  if (files && files.length) handleQuickAddPhotos(files);
+  e.target.value = "";
+});
+document.getElementById('lb-paste-photo-btn').addEventListener('click', handlePasteButton);
+document.getElementById('lb-paste-target-input').addEventListener('paste', () => {
+  setTimeout(() => {
+    const input = document.getElementById('lb-paste-target-input');
+    input.value = '';
+    document.getElementById('lb-paste-fallback').style.display = 'none';
+  }, 0);
+});
+document.addEventListener('paste', (ev) => {
+  if (document.getElementById('label-app').style.display === 'none') return;
+  const files = extractImageFilesFromClipboard(ev.clipboardData);
+  if (!files.length) return;
+  ev.preventDefault();
+  if (document.getElementById('lb-form-panel').style.display === 'block') {
+    handleFileSelected(files[0]);
+  } else {
+    handleQuickAddPhotos(files);
+  }
+});
+document.getElementById('lb-pick-photo-btn').addEventListener('click', () => document.getElementById('lb-file-input').click());
+document.getElementById('lb-file-input').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (file) handleFileSelected(file, 'front');
+});
+document.getElementById('lb-pick-photo-back-btn').addEventListener('click', () => document.getElementById('lb-file-input-back').click());
+document.getElementById('lb-file-input-back').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (file) handleFileSelected(file, 'back');
+});
+document.getElementById('lb-save-btn').addEventListener('click', handleSave);
+document.getElementById('lb-photo-preview').style.cursor = 'zoom-in';
+document.getElementById('lb-photo-preview').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  openLightbox(document.getElementById('lb-photo-preview').src);
+});
+document.getElementById('lb-photo-back-preview').style.cursor = 'zoom-in';
+document.getElementById('lb-photo-back-preview').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  openLightbox(document.getElementById('lb-photo-back-preview').src);
+});
+
+document.getElementById('lb-filter-all-btn').addEventListener('click', () => setFilter('all'));
+document.getElementById('lb-filter-wine-btn').addEventListener('click', () => setFilter('wine'));
+document.getElementById('lb-filter-sake-btn').addEventListener('click', () => setFilter('sake'));
+function setFilter(mode) {
+  filterMode = mode;
+  document.querySelectorAll('#label-app .filter-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`lb-filter-${mode}-btn`).classList.add('active');
+  renderList();
+}
+
+loadEntries();
+subscribeRealtime();
+
+})();
 </script>
 </body>
 </html>
