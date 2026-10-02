@@ -37,3 +37,6 @@ begin
     alter publication supabase_realtime add table "recipe-log";
   end if;
 end $$;
+
+-- 6) 重複写真検出用ハッシュ列(SHA-256)
+alter table "recipe-log" add column if not exists photo_hash text;

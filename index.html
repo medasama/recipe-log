@@ -333,6 +333,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const WEEKDAYS = ["日","月","火","水","木","金","土"];
 let entries = [];
 let currentPhotoDataUrl = null;
+let currentPhotoHash = null;
 let heicLoadPromise = null;
 let editingId = null;
 let viewMode = 'list';
@@ -350,6 +351,13 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s == null ? "" : s;
   return d.innerHTML;
+}
+
+// ---- 重複検出用ハッシュ(写真データの内容からSHA-256を計算) ----
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ---- content structuring, packed into the single `comment` field ----
@@ -553,7 +561,15 @@ async function processOnePhotoFile(file) {
     dataUrl = await fileToDataUrl(file);
   }
   const resized = await resizeDataUrl(dataUrl);
-  return { datetime: dateIso, photo: resized };
+  const hash = await sha256Hex(resized);
+  return { datetime: dateIso, photo: resized, photoHash: hash };
+}
+
+// 既存レコードのphoto_hashを全件取得（null以外）してSetにする
+async function fetchExistingPhotoHashes() {
+  const { data, error } = await supabaseClient.from(TABLE).select('photo_hash').not('photo_hash', 'is', null);
+  if (error) throw error;
+  return new Set((data || []).map(r => r.photo_hash).filter(Boolean));
 }
 
 async function handleQuickAddPhotos(fileList) {
@@ -562,15 +578,31 @@ async function handleQuickAddPhotos(fileList) {
   setOuterError("");
   const statusEl = document.getElementById('quick-add-status');
   statusEl.style.display = 'block';
-  let done = 0, failed = 0;
+  statusEl.textContent = '既存の記録と照合しています...';
+
+  let existingHashes;
+  try {
+    existingHashes = await fetchExistingPhotoHashes();
+  } catch (e) {
+    // 照合に失敗した場合は重複チェックをスキップして続行（取り込み自体は止めない）
+    existingHashes = new Set();
+  }
+  const batchHashes = new Set();
+
+  let done = 0, failed = 0, duplicate = 0;
   for (const file of files) {
     statusEl.textContent = `写真を取り込み中 (${done + 1}/${files.length})...`;
     try {
-      const { datetime, photo } = await processOnePhotoFile(file);
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-      const entry = { id, datetime, title: "", comment: "", photo };
-      await dbPut(entry);
-      entries.push(entry);
+      const { datetime, photo, photoHash } = await processOnePhotoFile(file);
+      if (existingHashes.has(photoHash) || batchHashes.has(photoHash)) {
+        duplicate++;
+      } else {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+        const entry = { id, datetime, title: "", comment: "", photo, photo_hash: photoHash };
+        await dbPut(entry);
+        entries.push(entry);
+        batchHashes.add(photoHash);
+      }
     } catch (e) {
       failed++;
     }
@@ -580,9 +612,10 @@ async function handleQuickAddPhotos(fileList) {
   renderList();
   statusEl.style.display = 'none';
   statusEl.textContent = '';
-  if (failed > 0) {
-    setOuterError(`${failed}件の写真は取り込めませんでした（HEIC変換の失敗など）。`);
-  }
+  const notes = [];
+  if (duplicate > 0) notes.push(`${duplicate}件は既存と同じ写真のためスキップしました`);
+  if (failed > 0) notes.push(`${failed}件は取り込めませんでした（HEIC変換の失敗など）`);
+  if (notes.length) setOuterError(notes.join('。') + '。');
 }
 
 async function handleFileSelected(file) {
@@ -608,10 +641,12 @@ async function handleFileSelected(file) {
     }
     const resized = await resizeDataUrl(dataUrl);
     currentPhotoDataUrl = resized;
+    currentPhotoHash = await sha256Hex(resized);
     document.getElementById('photo-preview').src = resized;
     document.getElementById('photo-preview-wrap').style.display = 'inline-block';
   } catch (err) {
     currentPhotoDataUrl = null;
+    currentPhotoHash = null;
     document.getElementById('photo-preview-wrap').style.display = 'none';
     if (isHeic) {
       setFormError("HEIC画像の変換に失敗しました。iPhoneの「設定 > カメラ > フォーマット」を「互換性優先」にするか、JPEG/PNGとして書き出してから選び直してください。");
@@ -630,9 +665,9 @@ async function dbGetAll() {
 }
 
 async function dbGetPhoto(id) {
-  const { data, error } = await supabaseClient.from(TABLE).select('photo').eq('id', id).maybeSingle();
+  const { data, error } = await supabaseClient.from(TABLE).select('photo,photo_hash').eq('id', id).maybeSingle();
   if (error) throw error;
-  return data ? (data.photo || null) : null;
+  return data || null;
 }
 
 async function withRetry(fn, tries = 3) {
@@ -710,10 +745,13 @@ async function loadPhotosInBackground() {
   for (const e of entries.slice()) {
     if (e.photo !== undefined) continue;
     try {
-      const photo = await withRetry(() => dbGetPhoto(e.id), 2);
+      const row = await withRetry(() => dbGetPhoto(e.id), 2);
       const cur = entries.find(x => x.id === e.id);
       if (!cur) continue;
-      if (cur.photo === undefined) cur.photo = photo;
+      if (cur.photo === undefined) {
+        cur.photo = row ? (row.photo || null) : null;
+        cur.photo_hash = row ? (row.photo_hash || null) : null;
+      }
       applyPhotoToCard(cur);
     } catch (err) { /* 失敗した分は未取得のまま（編集時に再取得） */ }
   }
@@ -882,7 +920,9 @@ async function handleEdit(id) {
   // 写真が未取得のまま保存すると写真が消えるため、先に取得する
   if (entry.photo === undefined) {
     try {
-      entry.photo = await withRetry(() => dbGetPhoto(id), 2);
+      const row = await withRetry(() => dbGetPhoto(id), 2);
+      entry.photo = row ? (row.photo || null) : null;
+      entry.photo_hash = row ? (row.photo_hash || null) : null;
     } catch (err) {
       setOuterError("写真の読み込みに失敗したため編集を開けませんでした。少し待ってからもう一度お試しください。");
       return;
@@ -906,6 +946,7 @@ async function handleEdit(id) {
   }
   document.getElementById('input-title').value = entry.title || "";
   currentPhotoDataUrl = entry.photo || null;
+  currentPhotoHash = entry.photo_hash || null;
   if (entry.photo) {
     document.getElementById('photo-preview').src = entry.photo;
     document.getElementById('photo-preview-wrap').style.display = 'inline-block';
@@ -947,13 +988,29 @@ async function handleSave() {
   const saveBtn = document.getElementById('save-btn');
   saveBtn.disabled = true; const origText = saveBtn.textContent; saveBtn.textContent = editingId ? '更新中...' : '保存中...';
   setFormError("");
+
+  // 新規追加時のみ：同じ写真が既にある場合は警告する（編集時は自分自身と一致するのが普通なので対象外）
+  if (!editingId && currentPhotoHash) {
+    try {
+      const existingHashes = await fetchExistingPhotoHashes();
+      if (existingHashes.has(currentPhotoHash)) {
+        const proceed = confirm("同じ写真の記録が既にあります。それでも保存しますか？");
+        if (!proceed) {
+          saveBtn.disabled = false; saveBtn.textContent = origText;
+          return;
+        }
+      }
+    } catch (e) { /* 確認に失敗しても保存自体は続行 */ }
+  }
+
   const id = editingId || `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
   const entry = {
     id,
     datetime: new Date(datetime).toISOString(),
     title: title || fallbackTitle || "無題の記録",
     comment,
-    photo: currentPhotoDataUrl
+    photo: currentPhotoDataUrl,
+    photo_hash: currentPhotoHash
   };
   try {
     const result = await dbPut(entry);
@@ -983,6 +1040,7 @@ function resetForm() {
   document.getElementById('input-menu').value = "";
   document.getElementById('input-title').value = "";
   currentPhotoDataUrl = null;
+  currentPhotoHash = null;
   document.getElementById('photo-preview-wrap').style.display = 'none';
   document.getElementById('file-input').value = "";
   document.getElementById('day-siblings-strip').style.display = 'none';
